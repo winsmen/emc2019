@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
 project(my_project)
-
-add_executable(move src/move.cpp)
-target_link_libraries(move emc-framework)
+add_executable(main src/main.cpp src/detection.cpp src/driveControl.cpp src/worldModel.cpp)
+target_link_libraries(main emc-framework)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
