@@ -192,7 +192,7 @@ struct robot
         }
         while(abs(locateExit()-center) > 5)
         {
-            io.sendBaseReference(0,0,0.1);
+            io.sendBaseReference(0,0,0.6);
             if (io.readLaserData(scan))
             {
                 dist_center = scan.ranges[center];
