@@ -22,7 +22,7 @@ int main()
         do
         {
             pico.getSensorData();
-            pico.io.sendBaseReference(0,0,0.1);
+            pico.io.sendBaseReference(0,0,0.6);
             locIndex = pico.locateExit();
             pico.r.sleep();
         }while(locIndex <= -1);
