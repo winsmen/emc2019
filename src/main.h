@@ -22,6 +22,7 @@ enum sys_state {
     FOLLOW_CORRIDOR
 };
 
+
 struct robot
 {
     emc::IO io;
@@ -59,6 +60,29 @@ struct robot
         if (!io.readLaserData(scan) || !io.readOdometryData(odom))
             return false;
         return true;
+    }
+
+    int measure()
+    {
+        /* Return values:
+         * 0 - Success
+         * 1 - LRF read failed, Odometer read success
+         * 2 - LRF read success, Odometer read failed
+         * 3 - LRF and Odometer read failed*/
+        int ret = 0;
+        if (io.readLaserData(scan))
+        {
+            dist_center = scan.ranges[center];
+            dist_right = scan.ranges[right];
+            dist_left = scan.ranges[left];
+        }
+        else
+            ret = 1;
+        if (io.readOdometryData(odom))
+            angle = odom.a;
+        else
+            ret += 2;
+        return ret;
     }
 
     void getMaxMinDist()

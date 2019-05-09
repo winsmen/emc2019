@@ -12,12 +12,18 @@ int main()
     pico.maxTrans = 0.5;
 
     sleep(2);
-    pico.io.speak("Waiting for Sensors to startup");
+    pico.io.speak("Starting up");
     pico.startup();
     pico.io.speak("Pico Ready!");
 
+    pico.state = SCAN_FOR_EXIT;
+
     while(pico.io.ok())
     {
+        measure();
+        //update system state
+        //switch operation based on system state
+        //r.sleep();
         int locIndex = -1;
         do
         {
