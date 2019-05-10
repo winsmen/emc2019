@@ -14,6 +14,12 @@ using namespace std;
 enum sys_state {
     STARTUP,
     SCAN_FOR_EXIT,
+    EXIT_UNDETECTABLE,
+    ORIENT_TO_EXIT_WALL,
+    DRIVE_TO_EXIT,
+    ENTER_EXIT_CORRIDOR,
+    EXIT_CORRIDOR_FOLLOW,
+    // TODO Eliminate unnecessary states
     FIND_WALL,
     ALIGN_TO_WALL,
     FOLLOW_WALL,
@@ -49,9 +55,9 @@ struct robot
     double angle;
 
     // Constructors
-    robot(int maxTrans, int maxRot);
     robot(int rate);
-    robot(int rate, sys_state state, int maxTrans, int maxRot);
+    robot(int rate, float maxTrans, float maxRot);
+    robot(int rate, sys_state state, float maxTrans, float maxRot);
 
     // Functions
     int measure();
@@ -205,7 +211,7 @@ struct robot
 };
 
 
-robot::robot(int rate, sys_state state, int maxTrans, int maxRot)
+robot::robot(int rate, sys_state state, float maxTrans, float maxRot)
     : r(rate), state(state), maxTrans(maxTrans), maxRot(maxRot)
 {
     int maxIter = 20;
@@ -222,10 +228,10 @@ robot::robot(int rate, sys_state state, int maxTrans, int maxRot)
 }
 
 
-robot::robot(int maxTrans, int maxRot)
-    : r(10), state(STARTUP), maxTrans(maxTrans), maxRot(maxRot)
+robot::robot(int rate, float maxTrans, float maxRot)
+    : r(rate), state(STARTUP), maxTrans(maxTrans), maxRot(maxRot)
 {
-    robot(10, STARTUP, maxTrans, maxRot);
+    robot(rate, STARTUP, maxTrans, maxRot);
 }
 
 
@@ -239,43 +245,114 @@ robot::robot(int rate)
 int robot::measure()
 {
     /* Return values:
-     * 0 - Success
-     * 1 - LRF read failed, Odometer read success
-     * 2 - LRF read success, Odometer read failed
-     * 3 - LRF and Odometer read failed*/
-    int ret = 0;
+     * 1  - Success
+     * 0  - LRF read failed, Odometer read success
+     * -1 - LRF read success, Odometer read failed
+     * -2 - LRF and Odometer read failed*/
+    int ret = 1;
     if (io.readLaserData(scan))
     {
         dist_center = scan.ranges[center];
         dist_right = scan.ranges[right];
         dist_left = scan.ranges[left];
+        getMaxMinDist();
     }
     else
-        ret = 1;
+        ret = 0;
     if (io.readOdometryData(odom))
         angle = odom.a;
     else
-        ret += 2;
+        ret -= 2;
     return ret;
 }
 
 
 int robot::map()
 {
+    // Identify general features: Corners, Walls, etc.
+    // Identify specific objects: exits, cabinets, obstacles, doors, etc.
     return 0;
 }
 
 
 int robot::plan()
 {
+    switch(state)
+    {
+    case STARTUP:
+        state = SCAN_FOR_EXIT;
+        break;
+
+    case SCAN_FOR_EXIT:
+        // Exit found
+            // state = ORIENT_TO_EXIT_WALL;
+        // Sweep complete
+            // save maxDist and maxDistDir
+            // state = EXIT_UNDETECTABLE;
+        break;
+
+    case EXIT_UNDETECTABLE:
+        // Obtain direction and half distance of maxDist
+        break;
+
+    case ORIENT_TO_EXIT_WALL:
+        // if facing wall
+            // state = DRIVE_TO_EXIT
+        break;
+
+    case DRIVE_TO_EXIT:
+        // set exit midpoint as destination
+        // if close enough to exit
+            // state = ENTER_EXIT_CORRIDOR
+        break;
+//    //TODO Is this case necessary?
+//    case ENTER_EXIT_CORRIDOR:
+
+//        break;
+
+    case EXIT_CORRIDOR_FOLLOW:
+
+        break;
+    }
+
     return 0;
 }
 
 
 int robot::actuate()
 {
+    switch(state)
+    {
+    case STARTUP:
+        io.sendBaseReference(0,0,0);
+        break;
+
+    case SCAN_FOR_EXIT:
+        io.sendBaseReference(0,0,0.1);
+        break;
+
+    case EXIT_UNDETECTABLE:
+
+        break;
+
+    case ORIENT_TO_EXIT_WALL:
+
+        break;
+
+    case DRIVE_TO_EXIT:
+
+        break;
+
+    case ENTER_EXIT_CORRIDOR:
+
+        break;
+
+    case EXIT_CORRIDOR_FOLLOW:
+
+        break;
+    }
+
     return 0;
 }
 
 #endif // MAIN
-
