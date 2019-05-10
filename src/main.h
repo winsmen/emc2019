@@ -25,6 +25,7 @@ enum sys_state {
 
 struct robot
 {
+    // Robot Variables
     emc::IO io;
     emc::LaserData scan;
     emc::OdometryData odom;
@@ -47,43 +48,16 @@ struct robot
     double min_dist_dir;
     double angle;
 
-    robot(int rate, sys_state state, int maxTrans, int maxRot)
-        : maxTrans(maxTrans), maxRot(maxRot), r(rate), state(state) {}
-    robot(int maxTrans, int maxRot)
-        : maxTrans(maxTrans), maxRot(maxRot), r(10), state(state) {}
-    robot(int rate)
-        : maxTrans(0.5), maxRot(1.2), r(rate), state(state) {}
+    // Constructors
+    robot(int maxTrans, int maxRot);
+    robot(int rate);
+    robot(int rate, sys_state state, int maxTrans, int maxRot);
 
-    bool sensorsReady()
-    {
-        //Attempt to read data from LFR and Odometer
-        if (!io.readLaserData(scan) || !io.readOdometryData(odom))
-            return false;
-        return true;
-    }
-
-    int measure()
-    {
-        /* Return values:
-         * 0 - Success
-         * 1 - LRF read failed, Odometer read success
-         * 2 - LRF read success, Odometer read failed
-         * 3 - LRF and Odometer read failed*/
-        int ret = 0;
-        if (io.readLaserData(scan))
-        {
-            dist_center = scan.ranges[center];
-            dist_right = scan.ranges[right];
-            dist_left = scan.ranges[left];
-        }
-        else
-            ret = 1;
-        if (io.readOdometryData(odom))
-            angle = odom.a;
-        else
-            ret += 2;
-        return ret;
-    }
+    // Functions
+    int measure();
+    int map();
+    int plan();
+    int actuate();
 
     void getMaxMinDist()
     {
@@ -106,31 +80,7 @@ struct robot
 
     void startup()
     {
-        int maxIter = 20;
-        while(!sensorsReady() && maxIter > 0)
-            r.sleep();
-        angInc = scan.angle_increment;
-        center = scan.ranges.size()/2 - 1;
-        right = center - (M_PI/2)/angInc - 1;
-        left = center + (M_PI/2)/angInc - 1;
-        dist_center = scan.ranges[center];
-        dist_right = scan.ranges[right];
-        dist_left = scan.ranges[left];
-        getMaxMinDist();
-        angle = odom.a;
-    }
 
-    void getSensorData()
-    {
-        if (io.readLaserData(scan))
-        {
-            dist_center = scan.ranges[center];
-            dist_right = scan.ranges[right];
-            dist_left = scan.ranges[left];
-        }
-        if (io.readOdometryData(odom))
-            angle = odom.a;
-        //std::cout << dist_center << "\t" << dist_right << "\t" << dist_left << std::endl;
     }
 
     void determineState()
@@ -253,6 +203,79 @@ struct robot
 
     }
 };
+
+
+robot::robot(int rate, sys_state state, int maxTrans, int maxRot)
+    : r(rate), state(state), maxTrans(maxTrans), maxRot(maxRot)
+{
+    int maxIter = 20;
+    while((!io.readLaserData(scan) || !io.readOdometryData(odom))
+          && maxIter > 0)
+    {
+        r.sleep();
+        --maxIter;
+    }
+    angInc = scan.angle_increment;
+    center = scan.ranges.size()/2 - 1;
+    right = center - (M_PI/2)/angInc - 1;
+    left = center + (M_PI/2)/angInc - 1;
+}
+
+
+robot::robot(int maxTrans, int maxRot)
+    : r(10), state(STARTUP), maxTrans(maxTrans), maxRot(maxRot)
+{
+    robot(10, STARTUP, maxTrans, maxRot);
+}
+
+
+robot::robot(int rate)
+    : r(rate), state(STARTUP), maxTrans(0.5), maxRot(1.2)
+{
+    robot(rate, STARTUP, 0.5, 1.2);
+}
+
+
+int robot::measure()
+{
+    /* Return values:
+     * 0 - Success
+     * 1 - LRF read failed, Odometer read success
+     * 2 - LRF read success, Odometer read failed
+     * 3 - LRF and Odometer read failed*/
+    int ret = 0;
+    if (io.readLaserData(scan))
+    {
+        dist_center = scan.ranges[center];
+        dist_right = scan.ranges[right];
+        dist_left = scan.ranges[left];
+    }
+    else
+        ret = 1;
+    if (io.readOdometryData(odom))
+        angle = odom.a;
+    else
+        ret += 2;
+    return ret;
+}
+
+
+int robot::map()
+{
+    return 0;
+}
+
+
+int robot::plan()
+{
+    return 0;
+}
+
+
+int robot::actuate()
+{
+    return 0;
+}
 
 #endif // MAIN
 

@@ -11,8 +11,6 @@ int main()
     pico.maxRot = 1.2;
     pico.maxTrans = 0.5;
 
-    sleep(2);
-    pico.io.speak("Starting up");
     pico.startup();
     pico.io.speak("Pico Ready!");
 
@@ -20,22 +18,22 @@ int main()
 
     while(pico.io.ok())
     {
-        measure();
-        //update system state
-        //switch operation based on system state
-        //r.sleep();
-        int locIndex = -1;
-        do
-        {
-            pico.getSensorData();
-            pico.io.sendBaseReference(0,0,pico.maxTrans);
-            locIndex = pico.locateExit();
-            pico.r.sleep();
-        }while(locIndex <= -1);
-        pico.io.sendBaseReference(0,0,0);
-        cout << "turning to exit" << endl;
-        sleep(2);
-        pico.faceExit(locIndex);
+        pico.measure();
+        pico.map();
+        pico.plan();
+        pico.actuate();
+//        int locIndex = -1;
+//        do
+//        {
+//            pico.measure();
+//            pico.io.sendBaseReference(0,0,pico.maxTrans);
+//            locIndex = pico.locateExit();
+//            pico.r.sleep();
+//        }while(locIndex <= -1);
+//        pico.io.sendBaseReference(0,0,0);
+//        cout << "turning to exit" << endl;
+//        sleep(2);
+//        pico.faceExit(locIndex);
         break;
     }
     pico.io.sendBaseReference(0,0,0);
