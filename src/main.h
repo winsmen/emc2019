@@ -346,8 +346,8 @@ int robot::actuate()
 
 bool robot::computeTrajectoryToExit()
 {    
-    bool arriveCenter = False;                        // not on the center line 
-	bool arriveExit = False;                          // not arrived at the exit
+    bool arriveCenter = false;                        // not on the center line 
+	bool arriveExit = false;                          // not arrived at the exit
 	vtheta = 0;
     if (scan.range[B] > 0.65 || arriveCenter = False)  // not arrived at the exit
     {
@@ -365,11 +365,11 @@ bool robot::computeTrajectoryToExit()
 		{
 			vx = 0;
 			vy = 1.5;
-			arriveCenter = True;
+			arriveCenter = true;
 			float error = scan.range[B]-scan.range[A];   // error during driving through the center line
 			if (error > 0.5)                          // the robot away from the center line
 			{
-				arriveCenter = False;
+				arriveCenter = false;
 			}
 		}
 	}
@@ -377,7 +377,7 @@ bool robot::computeTrajectoryToExit()
 	{
 		vx = 0;
 		vy = 0;
-		arriveExit = True;
+		arriveExit = true;
 	}
 	return arriveExit;
     // @Muliang
