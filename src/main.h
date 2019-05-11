@@ -349,7 +349,7 @@ bool robot::computeTrajectoryToExit()
     bool arriveCenter = false;                        // not on the center line 
 	bool arriveExit = false;                          // not arrived at the exit
 	vtheta = 0;
-    if (scan.range[B] > 0.65 || arriveCenter = False)  // not arrived at the exit
+    if (scan.range[B] > 0.65 || arriveCenter = false)  // not arrived at the exit
     {
 		if (scan.range[B]-scan.range[A]>0.1)          // the exit is at the right side
 		{
