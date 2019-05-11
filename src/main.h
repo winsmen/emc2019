@@ -345,7 +345,41 @@ int robot::actuate()
 }
 
 bool robot::computeTrajectoryToExit()
-{
+{    
+    bool arriveCenter = False;                        // not on the center line 
+	bool arriveExit = False;                          // not arrived at the exit
+	vtheta = 0;
+    if (scan.range[B] > 0.65 || arriveCenter = False)  // not arrived at the exit
+    {
+		if (scan.range[B]-scan.range[A]>0.1)          // the exit is at the right side
+		{
+			vx = 1.5;
+		    vy = 0;
+		}
+		elseif (scan.range[B]-scan.range[A]<-0.1)     // the exit is at the left side
+		{
+			vx = -1.5;
+		    vy = 0;
+		}
+		else 
+		{
+			vx = 0;
+			vy = 1.5;
+			arriveCenter = True;
+			float error = scan.range[B]-scan.range[A];   // error during driving through the center line
+			if (error > 0.5)                          // the robot away from the center line
+			{
+				arriveCenter = False;
+			}
+		}
+	}
+	else
+	{
+		vx = 0;
+		vy = 0;
+		arriveExit = True;
+	}
+	return arriveExit;
     // @Muliang
 }
 
