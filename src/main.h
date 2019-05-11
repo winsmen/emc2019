@@ -41,10 +41,13 @@ struct robot
 
     sys_state state;
 
-    double angInc;
+    // Measurement Constants
+    double ang_inc;
+    int scan_range;
     int center;
     int right;
     int left;
+    // Measurement Variables
     double dist_center;
     double dist_right;
     double dist_left;
@@ -53,6 +56,14 @@ struct robot
     double min_dist;
     double min_dist_dir;
     double angle;
+
+    // Actuation Variables
+    double vx;
+    double vy;
+    double vtheta;
+    double dx;
+    double dy;
+    double theta;
 
     // Constructors
     robot(int rate);
@@ -64,6 +75,8 @@ struct robot
     int map();
     int plan();
     int actuate();
+
+    bool computeTrajectoryToExit();
 
     void getMaxMinDist()
     {
@@ -84,31 +97,6 @@ struct robot
         }
     }
 
-    void startup()
-    {
-
-    }
-
-    void determineState()
-    {
-        //TODO convert constants to performance variables
-//        if (min_dist > 0.5)
-//            state = FIND_WALL;
-//        else if (min_dist < 0.5 && state == FIND_WALL)
-//            state = ALIGN_TO_WALL;
-//        else if (alignedToRight() && dist_center < 0.5)
-//            state = CORNER;
-//        else if (alignedToRight())
-//            state = FOLLOW_WALL;
-//        else if (foundGap())
-//            state = EXIT_FOUND;
-//        else
-        if (state == STARTUP)
-            state == SCAN_FOR_EXIT;
-//        else if (state == SCAN_FOR_EXIT && exitFound() > -1)
-//            state = EXIT_FOUND;
-
-    }
 
     float exitFound()
     {
@@ -221,10 +209,11 @@ robot::robot(int rate, sys_state state, float maxTrans, float maxRot)
         r.sleep();
         --maxIter;
     }
-    angInc = scan.angle_increment;
-    center = scan.ranges.size()/2 - 1;
-    right = center - (M_PI/2)/angInc - 1;
-    left = center + (M_PI/2)/angInc - 1;
+    ang_inc = scan.angle_increment;
+    scan_range = scan.ranges.size();
+    center = scan_range/2 - 1;
+    right = center - (M_PI/2)/ang_inc - 1;
+    left = center + (M_PI/2)/ang_inc - 1;
 }
 
 
@@ -270,6 +259,7 @@ int robot::measure()
 int robot::map()
 {
     // Identify general features: Corners, Walls, etc.
+    for (int i = 0; i < scan_range; ++i);
     // Identify specific objects: exits, cabinets, obstacles, doors, etc.
     return 0;
 }
@@ -301,9 +291,8 @@ int robot::plan()
         break;
 
     case DRIVE_TO_EXIT:
-        // set exit midpoint as destination
-        // if close enough to exit
-            // state = ENTER_EXIT_CORRIDOR
+        if (computeTrajectoryToExit())
+            state = ENTER_EXIT_CORRIDOR;
         break;
 //    //TODO Is this case necessary?
 //    case ENTER_EXIT_CORRIDOR:
@@ -340,7 +329,7 @@ int robot::actuate()
         break;
 
     case DRIVE_TO_EXIT:
-
+        io.sendBaseReference(vx,vy,vtheta);
         break;
 
     case ENTER_EXIT_CORRIDOR:
@@ -353,6 +342,11 @@ int robot::actuate()
     }
 
     return 0;
+}
+
+bool robot::computeTrajectoryToExit()
+{
+    // @Muliang
 }
 
 #endif // MAIN

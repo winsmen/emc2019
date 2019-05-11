@@ -9,10 +9,6 @@ int main()
     float maxRot = 1.2;
     float maxTrans = 0.5;
     robot pico(pico_rate,maxTrans,maxRot);
-    pico.maxRot = 1.2;
-    pico.maxTrans = 0.5;
-
-    pico.startup();
     pico.io.speak("Pico Ready!");
 
     pico.state = SCAN_FOR_EXIT;
@@ -29,6 +25,15 @@ int main()
         pico.actuate();
 
         pico.r.sleep();
+    }
+
+    pico.io.speak("Goodbye");
+    pico.io.sendBaseReference(0,0,0);
+
+    cout << "Hello World" << endl;
+    return 0;
+}
+
 //        int locIndex = -1;
 //        do
 //        {
@@ -42,9 +47,3 @@ int main()
 //        sleep(2);
 //        pico.faceExit(locIndex);
 //        break;
-    }
-    pico.io.sendBaseReference(0,0,0);
-
-    cout << "Hello World" << endl;
-    return 0;
-}
