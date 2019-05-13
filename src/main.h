@@ -52,7 +52,7 @@ struct robot
     emc::Rate r;
     float maxTrans;
     float maxRot;
-    static const float min_dist_from_wall = 0.5;
+    static const float min_dist_from_wall = 0.6;
     static const float dist_compare_tol = 0.01;
     static const float angle_compare_tol = 0.05;
 
@@ -73,7 +73,7 @@ struct robot
     double min_dist;
     double min_dist_dir;
     double angle;
-    static const int padding = 5;
+    static const int padding = 15;
     double distance[1000-2*padding];
     int wall_side;
 
@@ -102,9 +102,11 @@ struct robot
 
     void getMaxMinDist()
     {
-        max_dist = min_dist = scan.ranges[0];
-        max_dist_dir = min_dist_dir = 0;
-        for (int i = 0; i < scan.ranges.size(); ++i)
+        max_dist = scan.ranges[0];
+min_dist = 20;
+        max_dist_dir = 0;
+min_dist_dir = 0;
+        for (int i = padding; i < scan.ranges.size()-padding; ++i)
         {
             if (scan.ranges[i] > max_dist)
             {
@@ -117,6 +119,7 @@ struct robot
                 min_dist_dir = i;
             }
         }
+//cout << "min found at: " << min_dist_dir << endl;
     }
 
 
@@ -327,6 +330,7 @@ int robot::plan()
         start_angle = min_dist_dir;
         vy = sin((min_dist_dir-center)*ang_inc)*maxTrans;
         vx = cos((min_dist_dir-center)*ang_inc)*maxTrans;
+cout << vx << " " << vy << endl;
         vtheta = 0;
         state = GO_TO_WALL;
         cout << "Minimum Distance: " << min_dist << "\nFound at index: " << min_dist_dir << endl;
@@ -334,12 +338,16 @@ int robot::plan()
 
     case GO_TO_WALL:
 //        cout << "min_dist: " << min_dist << " at start_angle: " << scan.ranges[start_angle] << endl;
+//	cout << vx << " " << vy << endl;
+	vy = sin((start_angle-center)*ang_inc)*maxTrans;
+	vx = cos((start_angle-center)*ang_inc)*maxTrans;
+	cout << vx << " " << vy << endl;  
         if (min_dist - min_dist_from_wall < dist_compare_tol)
         {
-            vx = 0;
-            vy = 0;
-            vtheta = 0;
-            state = STOP;
+//            vx = 0;
+//            vy = 0;
+//            vtheta = 0;
+            state = ALIGN_TO_WALL;
             if (min_dist_dir < center)
                 wall_side = RIGHT;
             else
@@ -358,7 +366,7 @@ int robot::plan()
                 dist_sum += fabs(scan.ranges[right+i]-scan.ranges[right-i]);
             }
             if (dist_sum < 50*dist_compare_tol*0.8)
-                state = FOLLOW_WALL;
+                state = ALIGN_TO_WALL;
             else
             {
                 if (start_angle < right)
@@ -376,7 +384,7 @@ int robot::plan()
                 dist_sum += fabs(scan.ranges[left+i]-scan.ranges[left-i]);
             }
             if (dist_sum < 50*dist_compare_tol*0.8)
-                state = FOLLOW_WALL;
+                state = ALIGN_TO_WALL;
             else
             {
                 if (start_angle < left)
@@ -785,5 +793,4 @@ bool robot::computeTrajectoryToExit()
 //	return arriveExit;
     // @Muliang
 }
-
-#endif // MAIN
+#endif
