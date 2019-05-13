@@ -1,6 +1,6 @@
 #ifndef MAIN
 #define MAIN
-// emc
+
 #include <iostream>
 #include <unistd.h>
 #include <emc/io.h>
@@ -19,6 +19,7 @@ enum sys_state
 {
     STARTUP,
     SCAN_FOR_EXIT,
+    MOVE_TO_MAX,
     FACE_EXIT,
     EXIT_UNDETECTABLE,
     ORIENT_TO_EXIT_WALL,
@@ -54,8 +55,8 @@ struct robot
     float maxRot;
     static const float min_dist_from_wall = 0.6;
     static const float dist_compare_tol = 0.01;
+    static const float corner_compare_tol = 0.1;
     static const float angle_compare_tol = 0.05;
-
     sys_state state;
 
     // Measurement Constants
@@ -74,8 +75,13 @@ struct robot
     double min_dist_dir;
     double angle;
     static const int padding = 15;
+    static const int av_range = 15;
     double distance[1000-2*padding];
     int wall_side;
+    int n_corners;
+    int corner_dist[1000];
+    int corner_angle[1000];
+    int corridor_center;
 
     // Actuation Variables
     double vx;
@@ -89,114 +95,27 @@ struct robot
     // Constructor
     robot(int rate, float maxTrans, float maxRot);
 
-    // Functions
+    // Main Functions
     int measure();
     int map();
     int plan();
     int actuate();
 
-    bool computeTrajectoryToExit();
+    // Measurement
+    void getMaxMinDist();
     void smoothen();
 
+    // Mapping
+    bool computeTrajectoryToExit();
+    int locateExit();
+
+    // Planning
+    void faceExit(int);
+
+    // Actuation
+
+    // Misc
     void printState();
-
-    void getMaxMinDist()
-    {
-        max_dist = scan.ranges[0];
-min_dist = 20;
-        max_dist_dir = 0;
-min_dist_dir = 0;
-        for (int i = padding; i < scan.ranges.size()-padding; ++i)
-        {
-            if (scan.ranges[i] > max_dist)
-            {
-                max_dist = scan.ranges[i];
-                max_dist_dir = i;
-            }
-            else if (scan.ranges[i] < min_dist && scan.ranges[i] > 0.1)
-            {
-                min_dist = scan.ranges[i];
-                min_dist_dir = i;
-            }
-        }
-//cout << "min found at: " << min_dist_dir << endl;
-    }
-
-
-    float exitFound()
-    {
-        bool found = false;
-        float maxSep;
-        for (int i = 0; i < scan.ranges.size()-1; ++i)
-        {
-            if (abs(scan.ranges[i]-scan.ranges[i+1]) > maxSep)
-                maxSep = abs(scan.ranges[i]-scan.ranges[i+1]);
-            if (abs(scan.ranges[i]-scan.ranges[i+1]) > 0.25)
-            {
-                if (found)
-                {
-                    break;
-                }
-                else
-                    found = true;
-            }
-            else
-                found = false;
-        }
-        return maxSep;
-    }
-
-    int locateExit()
-    {
-        bool found = false;
-        float maxSep = 0;
-        int foundAt = -1;
-        for (int i = 0; i < scan.ranges.size()-1; ++i)
-        {
-            //cout << abs(scan.ranges[i]-scan.ranges[i+1]) << endl;
-            if (fabs(scan.ranges[i]-scan.ranges[i+1]) > maxSep)
-            {
-                maxSep = fabs(scan.ranges[i]-scan.ranges[i+1]);
-                foundAt = i;
-            }
-//            if (fabs(scan.ranges[i]-scan.ranges[i+1]) > 0.25)
-//            {
-////                if (found)
-////                {
-//                    foundAt = i;
-//                    break;
-////                }
-////                else
-////                    found = true;
-//            }
-//            else
-//                found = false;
-        }
-        cout << "Exit Located at " << foundAt << "Max sep" << maxSep << endl;
-        return foundAt;
-    }
-
-    void faceExit(int locIndex)
-    {
-        if (io.readLaserData(scan))
-        {
-            dist_center = scan.ranges[center];
-            dist_right = scan.ranges[right];
-            dist_left = scan.ranges[left];
-        }
-        while(abs(locateExit()-center) > 5)
-        {
-            io.sendBaseReference(0,0,maxTrans);
-            if (io.readLaserData(scan))
-            {
-                dist_center = scan.ranges[center];
-                dist_right = scan.ranges[right];
-                dist_left = scan.ranges[left];
-            }
-            r.sleep();
-        }
-        return;
-    }
 
 };
 
@@ -247,17 +166,39 @@ int robot::measure()
 
 int robot::map()
 {
-    int n_corners = 0;
+    n_corners = 0;
     // Identify general features: Corners, Walls, etc.
-    for (int i = 0; i < scan_range-2*padding; ++i)
+    for (int i = 2*padding; i < scan_range-2*padding; ++i)
     {
-        if (2*distance[i+1] > distance[i]+distance[i+2])
+        float dist_av = scan.ranges[i];
+        int den = av_range+1;
+        for (int j = 1; j < av_range; ++j)
         {
-            n_corners += 1;
+            dist_av += j*scan.ranges[i+j] + j*scan.ranges[i-j];
+            den += 2*j;
+        }
+        dist_av /= den;
+        if (dist_av - scan.ranges[i] > corner_compare_tol)
+        {
+            corner_dist[n_corners] = scan.ranges[i];
+            corner_angle[n_corners] = i;
+            ++n_corners;
         }
     }
     // Identify specific objects: exits, cabinets, obstacles, doors, etc.
-//    cout << "Number of corners: " << n_corners << endl;
+    if (n_corners > 0)
+    {
+//        cout << "Number of corners: " << n_corners << endl;
+//        cout << "Corner Start: " << corner_angle[0] << " Corner End: " << corner_angle[n_corners-1] << endl;
+        corridor_center = (corner_angle[0]+corner_angle[n_corners-1])/2;
+        if (fabs(scan.ranges[corridor_center] - scan.ranges[corner_angle[0]]) < corner_compare_tol ||
+                fabs(scan.ranges[corridor_center] - scan.ranges[corner_angle[n_corners-1]]) < corner_compare_tol)
+            corridor_center = -1;
+        else
+            cout << "Found Exit at: " << corridor_center << endl;
+    }
+    else
+        corridor_center = -1;
     return 0;
 }
 
@@ -268,27 +209,66 @@ int robot::plan()
     switch(state)
     {
     case STARTUP:
-//        state = SCAN_FOR_EXIT;
-//        start_angle = angle;
         state = SCAN_FOR_EXIT;
+        start_angle = angle;
+        theta = start_angle + (2*M_PI-4);
+        if (theta > M_PI)
+            theta -= 2*M_PI;
+        cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
         break;
 
     case SCAN_FOR_EXIT:
         vtheta = maxRot;
         // Exit found
-        if (locateExit() != -1)
+        if (corridor_center != -1)
         {
-            start_angle = locateExit();
-            state = FACE_EXIT;
+            start_angle = corridor_center;
+            state = STOP;
             break;
         }
         // Sweep complete
-        cout << angle << " " << angle-start_angle << endl;
-        if (angle-start_angle > 2*M_PI-4)
+        cout << fabs(angle - theta) << endl;
+        if (fabs(angle - theta) < angle_compare_tol)
         {
             // save maxDist and maxDistDir
-            state = FIND_WALL;
+            state = MOVE_TO_MAX;
+            theta = angle+(max_dist_dir-center)*ang_inc;
+            dx = max_dist;
+            if (theta > M_PI)
+                theta -= 2*M_PI;
+            else if (theta < -M_PI)
+                theta += 2*M_PI;
+            if (theta > angle)
+                vtheta = maxRot;
+            else
+                vtheta = -maxRot;
+            cout << "Max at index: " << max_dist_dir << endl;
+            cout << "Angle to turn: " << theta-angle << endl;
+        }
+        break;
+
+    case MOVE_TO_MAX:
+        cout << angle-theta << endl;
+        if (fabs(angle-theta) < angle_compare_tol)
+        {
             vtheta = 0;
+            vx = maxTrans;
+            cout << "dx: " << dx << " odom.x: " << odom.x << endl;
+            if (dist_center < dx/2 || min_dist < min_dist_from_wall)
+            {
+                vx = 0;
+                state = SCAN_FOR_EXIT;
+                start_angle = angle;
+                theta = start_angle + M_PI;
+                if (theta > M_PI)
+                    theta -= 2*M_PI;
+                cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
+            }
+            if (corridor_center != -1)
+            {
+                start_angle = corridor_center;
+                state = STOP;
+            }
         }
         break;
 
@@ -339,9 +319,9 @@ cout << vx << " " << vy << endl;
     case GO_TO_WALL:
 //        cout << "min_dist: " << min_dist << " at start_angle: " << scan.ranges[start_angle] << endl;
 //	cout << vx << " " << vy << endl;
-	vy = sin((start_angle-center)*ang_inc)*maxTrans;
-	vx = cos((start_angle-center)*ang_inc)*maxTrans;
-	cout << vx << " " << vy << endl;  
+        vy = sin((start_angle-center)*ang_inc)*maxTrans;
+        vx = cos((start_angle-center)*ang_inc)*maxTrans;
+        cout << vx << " " << vy << endl;
         if (min_dist - min_dist_from_wall < dist_compare_tol)
         {
 //            vx = 0;
@@ -632,6 +612,10 @@ int robot::actuate()
         io.sendBaseReference(0,0,vtheta);
         break;
 
+    case MOVE_TO_MAX:
+        io.sendBaseReference(vx,0,vtheta);
+        break;
+
     case FACE_EXIT:
         io.sendBaseReference(0,0,vtheta);
         break;
@@ -738,6 +722,9 @@ void robot::printState()
     case FOLLOW_CORRIDOR:
         cout << "FOLLOW_CORRIDOR" << endl;
         break;
+    case MOVE_TO_MAX:
+        cout << "MOVE_TO_MAX" << endl;
+        break;
     }
 }
 
@@ -755,8 +742,71 @@ void robot::smoothen()
     }
 }
 
+
+void robot::getMaxMinDist()
+{
+    max_dist = scan.ranges[0];
+    min_dist = 20;
+    max_dist_dir = min_dist_dir = 0;
+    for (int i = padding; i < scan.ranges.size()-padding; ++i)
+    {
+        if (scan.ranges[i] > max_dist)
+        {
+            max_dist = scan.ranges[i];
+            max_dist_dir = i;
+        }
+        else if (scan.ranges[i] < min_dist && scan.ranges[i] > 0.1)
+        {
+            min_dist = scan.ranges[i];
+            min_dist_dir = i;
+        }
+    }
+}
+
+
+int robot::locateExit()
+{
+    bool found = false;
+    float maxSep = 0;
+    int foundAt = -1;
+    for (int i = 0; i < scan.ranges.size()-1; ++i)
+    {
+        if (fabs(scan.ranges[i]-scan.ranges[i+1]) > maxSep)
+        {
+            maxSep = fabs(scan.ranges[i]-scan.ranges[i+1]);
+            foundAt = i;
+        }
+    }
+    cout << "Exit Located at " << foundAt << "Max sep" << maxSep << endl;
+    return foundAt;
+}
+
+
+void robot::faceExit(int locIndex)
+{
+    if (io.readLaserData(scan))
+    {
+        dist_center = scan.ranges[center];
+        dist_right = scan.ranges[right];
+        dist_left = scan.ranges[left];
+    }
+    while(abs(locateExit()-center) > 5)
+    {
+        io.sendBaseReference(0,0,maxTrans);
+        if (io.readLaserData(scan))
+        {
+            dist_center = scan.ranges[center];
+            dist_right = scan.ranges[right];
+            dist_left = scan.ranges[left];
+        }
+        r.sleep();
+    }
+    return;
+}
+
+
 bool robot::computeTrajectoryToExit()
-{    
+{
 //    bool arriveCenter = false;                        // not on the center line
 //	bool arriveExit = false;                          // not arrived at the exit
 //	vtheta = 0;
