@@ -7,13 +7,13 @@ int main()
     // Setup
     cout << "Starting up" << endl;
     int pico_rate = 10;
-    float maxRot = 0.5;
+    float maxRot = 0.7;
     float maxTrans = 0.5;
     robot pico(pico_rate,maxTrans,maxRot);
     pico.io.speak("Pico Ready!");
 
-    pico.state = FIND_WALL;
-    cout << "Pico State: FIND_WALL" << endl;
+    pico.state = STARTUP;
+    cout << "Pico State: STARTUP" << endl;
 
 //    for (int i = pico.center; i < pico.center+100; ++i)
 //    {

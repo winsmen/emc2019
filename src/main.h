@@ -19,6 +19,7 @@ enum sys_state
 {
     STARTUP,
     SCAN_FOR_EXIT,
+    FACE_EXIT,
     EXIT_UNDETECTABLE,
     ORIENT_TO_EXIT_WALL,
     DRIVE_TO_EXIT,
@@ -147,25 +148,26 @@ struct robot
         bool found = false;
         float maxSep = 0;
         int foundAt = -1;
-        cout << "Exit Located at " << foundAt << "Max sep" << maxSep << endl;
-
         for (int i = 0; i < scan.ranges.size()-1; ++i)
         {
             //cout << abs(scan.ranges[i]-scan.ranges[i+1]) << endl;
             if (fabs(scan.ranges[i]-scan.ranges[i+1]) > maxSep)
-                maxSep = fabs(scan.ranges[i]-scan.ranges[i+1]);
-            if (fabs(scan.ranges[i]-scan.ranges[i+1]) > 0.25)
             {
-//                if (found)
-//                {
-                    foundAt = i;
-                    break;
-//                }
-//                else
-//                    found = true;
+                maxSep = fabs(scan.ranges[i]-scan.ranges[i+1]);
+                foundAt = i;
             }
-            else
-                found = false;
+//            if (fabs(scan.ranges[i]-scan.ranges[i+1]) > 0.25)
+//            {
+////                if (found)
+////                {
+//                    foundAt = i;
+//                    break;
+////                }
+////                else
+////                    found = true;
+//            }
+//            else
+//                found = false;
         }
         cout << "Exit Located at " << foundAt << "Max sep" << maxSep << endl;
         return foundAt;
@@ -265,20 +267,40 @@ int robot::plan()
     case STARTUP:
 //        state = SCAN_FOR_EXIT;
 //        start_angle = angle;
-        state = FIND_WALL;
+        state = SCAN_FOR_EXIT;
         break;
 
     case SCAN_FOR_EXIT:
-        // Exit found
-            // state = ORIENT_TO_EXIT_WALL;
-        // Sweep complete
         vtheta = maxRot;
+        // Exit found
+        if (locateExit() != -1)
+        {
+            start_angle = locateExit();
+            state = FACE_EXIT;
+            break;
+        }
+        // Sweep complete
         cout << angle << " " << angle-start_angle << endl;
         if (angle-start_angle > 2*M_PI-4)
         {
             // save maxDist and maxDistDir
-            state = EXIT_UNDETECTABLE;
+            state = FIND_WALL;
             vtheta = 0;
+        }
+        break;
+
+    case FACE_EXIT:
+        if (locateExit()-center > 10)
+            vtheta = maxRot;
+        else if (locateExit()-center < -10)
+            vtheta = -maxRot;
+        else
+        {
+            start_angle = locateExit();
+            vy = sin((start_angle-center)*ang_inc)*maxTrans;
+            vx = cos((start_angle-center)*ang_inc)*maxTrans;
+            vtheta = 0;
+            state = GO_TO_WALL;
         }
         break;
 
@@ -303,8 +325,8 @@ int robot::plan()
 
     case FIND_WALL:
         start_angle = min_dist_dir;
-        vy = min_dist*sin((min_dist_dir-center)*ang_inc)*maxTrans;
-        vx = min_dist*cos((min_dist_dir-center)*ang_inc)*maxTrans;
+        vy = sin((min_dist_dir-center)*ang_inc)*maxTrans;
+        vx = cos((min_dist_dir-center)*ang_inc)*maxTrans;
         vtheta = 0;
         state = GO_TO_WALL;
         cout << "Minimum Distance: " << min_dist << "\nFound at index: " << min_dist_dir << endl;
@@ -312,12 +334,12 @@ int robot::plan()
 
     case GO_TO_WALL:
 //        cout << "min_dist: " << min_dist << " at start_angle: " << scan.ranges[start_angle] << endl;
-        if (scan.ranges[start_angle] - min_dist_from_wall < dist_compare_tol)
+        if (min_dist - min_dist_from_wall < dist_compare_tol)
         {
             vx = 0;
             vy = 0;
             vtheta = 0;
-            state = ALIGN_TO_WALL;
+            state = STOP;
             if (min_dist_dir < center)
                 wall_side = RIGHT;
             else
@@ -373,18 +395,18 @@ int robot::plan()
             for (int i = 0; i < 50; ++i)
             {
 //                cout << scan.ranges[right+i] << " " << dist_right*cos(i*ang_inc) << endl;
-                if (scan.ranges[right+i] - dist_right*cos(i*ang_inc) > 10*dist_compare_tol)
+                if (scan.ranges[right+i] - dist_right*cos(i*ang_inc) > 20*dist_compare_tol)
                 {
                     flag = true;
                     break;
                 }
             }
-            if (flag)
+            if (flag && dist_right - min_dist_from_wall < 2*dist_compare_tol)
             {
                 state = ENTER_EXIT_CORRIDOR;
                 break;
             }
-            vy = min(max(min_dist_from_wall-scan.ranges[right],-maxTrans),maxTrans);
+            vy = min(max(float(min_dist_from_wall-min_dist),-maxTrans),maxTrans);
             int count = 0;
             for (int i = 0; i < 20; ++i)
             {
@@ -415,18 +437,19 @@ int robot::plan()
             for (int i = 0; i < 50; ++i)
             {
 //                cout << scan.ranges[left-i] << " " << dist_left*cos(i*ang_inc) << endl;
-                if (scan.ranges[left-i] - dist_left*cos(i*ang_inc) > 10*dist_compare_tol)
+                if (scan.ranges[left-i] - dist_left*cos(i*ang_inc) > 5*dist_compare_tol)
                 {
                     flag = true;
                     break;
                 }
             }
-            if (flag)
+            cout << scan.ranges[left+50] - min_dist_from_wall/cos(50*ang_inc) << endl;
+            if (flag && fabs(scan.ranges[left+50] - min_dist_from_wall/cos(50*ang_inc)) < 2*dist_compare_tol)
             {
                 state = ENTER_EXIT_CORRIDOR;
                 break;
             }
-            vy = max(min(scan.ranges[left]-min_dist_from_wall,maxTrans),-maxTrans);
+            vy = max(min(float(min_dist-min_dist_from_wall),maxTrans),-maxTrans);
             int count = 0;
             for (int i = 0; i < 20; ++i)
             {
@@ -489,7 +512,7 @@ int robot::plan()
         break;
 
     case ENTER_EXIT_CORRIDOR:
-        vx = maxTrans/2;
+        vx = maxTrans;
         vy = 0;
         if (wall_side == RIGHT)
         {
@@ -598,6 +621,10 @@ int robot::actuate()
         io.sendBaseReference(0,0,vtheta);
         break;
 
+    case FACE_EXIT:
+        io.sendBaseReference(0,0,vtheta);
+        break;
+
     case EXIT_UNDETECTABLE:
         io.sendBaseReference(vx,0,vtheta);
         break;
@@ -660,6 +687,9 @@ void robot::printState()
         break;
     case SCAN_FOR_EXIT:
         cout << "SCAN_FOR_EXIT" << endl;
+        break;
+    case FACE_EXIT:
+        cout << "FACE_EXIT" << endl;
         break;
     case EXIT_UNDETECTABLE:
         cout << "EXIT_UNDETECTABLE" << endl;
