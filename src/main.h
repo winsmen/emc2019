@@ -391,6 +391,7 @@ int robot::plan()
         vx = maxTrans;
         if (wall_side == RIGHT)
         {
+            // check for exit
             bool flag = false;
             for (int i = 0; i < 50; ++i)
             {
@@ -406,6 +407,7 @@ int robot::plan()
                 state = ENTER_EXIT_CORRIDOR;
                 break;
             }
+            // check for deviation
             vy = min(max(float(min_dist_from_wall-min_dist),-maxTrans),maxTrans);
             int count = 0;
             for (int i = 0; i < 20; ++i)
@@ -421,6 +423,7 @@ int robot::plan()
                 vtheta = 0.1;
             else
                 vtheta = 0;
+            // check for corner
             for (int i = center-100; i < center; ++i)
             {
                 if (scan.ranges[i] < (min_dist_from_wall)/cos((i-center)*ang_inc) && scan.ranges[i] > 0.01)

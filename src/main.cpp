@@ -12,13 +12,14 @@ int main()
     robot pico(pico_rate,maxTrans,maxRot);
     pico.io.speak("Pico Ready!");
 
-    pico.state = STARTUP;
+    pico.state = FIND_WALL;
     cout << "Pico State: STARTUP" << endl;
 
-//    for (int i = pico.center; i < pico.center+100; ++i)
+//    for (int i = 0; i < pico.scan_range; ++i)
 //    {
-//        cout << pico.scan.ranges[i] << " " << (pico.min_dist_from_wall+0.1)/cos((i-pico.center)*pico.ang_inc) << endl;
+//        cout << pico.scan.ranges[i] << " ";
 //    }
+//    cout << endl;
 //    return 0;
     while(pico.io.ok())
     {
