@@ -111,7 +111,7 @@ struct robot
                 max_dist = scan.ranges[i];
                 max_dist_dir = i;
             }
-            else if (scan.ranges[i] < min_dist && scan.ranges[i] > 0.01)
+            else if (scan.ranges[i] < min_dist && scan.ranges[i] > 0.1)
             {
                 min_dist = scan.ranges[i];
                 min_dist_dir = i;
