@@ -34,7 +34,8 @@ enum sys_state
     FOLLOW_WALL,
     CORNER,
     EXIT_FOUND,
-    FOLLOW_CORRIDOR
+    FOLLOW_CORRIDOR,
+    GO_TO_EXIT
 };
 
 struct Corner
@@ -225,7 +226,8 @@ int robot::plan()
         if (corridor_center != -1)
         {
             start_angle = corridor_center;
-            state = FACE_EXIT;
+            //state = FACE_EXIT;
+            state = GO_TO_EXIT;
             break;
         }
         // Sweep complete
@@ -269,7 +271,8 @@ int robot::plan()
             if (corridor_center != -1)
             {
                 start_angle = corridor_center;
-                state = FACE_EXIT;
+                //state = FACE_EXIT;
+                state = GO_TO_EXIT;
             }
         }
         break;
@@ -288,6 +291,8 @@ int robot::plan()
             state = DRIVE_TO_EXIT;
         }
         break;
+        
+    case GO_TO_EXIT:
 
     case EXIT_UNDETECTABLE:
         // Obtain direction and half distance of maxDist
@@ -855,7 +860,8 @@ bool robot::computeTrajectoryToExit()
 
 bool robot::goToExit()
 {
-	
+	int corner1 = corner_angle[0];
+	int corner2 = corner_angle[n_corners-1];
 	float exit_center_tol=0.08;                                               // the creterion for centrad
 
 	bool arriveExit = false;
@@ -899,7 +905,14 @@ bool robot::goToExit()
 		float alpha = M_PI/2-(beta+theta_1);                                  // spinning until the front towards the exit
 		if (alpha>0.1)
 		{
-			vtheta = maxRot;
+		    if (A < B)
+		    {
+			    vtheta = maxRot;
+		    }
+		    else
+		    {
+		        vtheta = -maxRot;
+		    }
 		}
 		else
 		{
