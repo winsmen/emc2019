@@ -74,6 +74,8 @@ struct robot
     bool left_clear;
     double max_dist;
     double max_dist_dir;
+    double max_dist_front;
+    double max_dist_front_dir;
     double min_dist;
     double min_dist_dir;
     double angle;
@@ -86,6 +88,7 @@ struct robot
     int corner_angle[1000];
     int corridor_center;
     double corridor_center_dist;
+    int found_corridor;
 
     // Actuation Variables
     double vx;
@@ -136,6 +139,7 @@ robot::robot(int rate, float maxTrans, float maxRot)
     center = (scan_span-1)/2;
     right = center - (M_PI/2)/ang_inc;
     left = center + (M_PI/2)/ang_inc;
+    found_corridor = 0;
 }
 
 
@@ -194,13 +198,30 @@ int robot::map()
         cout << corner_dist[0] << " " << corner_dist[n_corners-1] << endl;
         corridor_center_dist = (corner_dist[0]+corner_dist[n_corners-1])/2;
         if (fabs((scan.ranges[corner_angle[n_corners-1]] + scan.ranges[corner_angle[0]])/2 - scan.ranges[corridor_center]) < corner_compare_tol)
+        {
             corridor_center = -1;
+            found_corridor -= 1;
+            if (found_corridor < 0)
+                found_corridor = 0;
+        }
+        else
+        {
+            found_corridor += 1;
+            if (found_corridor > 10)
+                found_corridor = 10;
+        }
 //        else
 //            cout << "Found Exit at: " << corridor_center << endl;
 //        cout << "Corner start and end: " << corner_angle[0] << " " << corner_angle[n_corners-1] << endl;
     }
     else
+    {
         corridor_center = -1;
+        corridor_center = -1;
+        found_corridor -= 1;
+        if (found_corridor < 0)
+            found_corridor = 0;
+    }
     return 0;
 }
 
@@ -222,7 +243,7 @@ int robot::plan()
     case SCAN_FOR_EXIT:
         vtheta = maxRot;
         // Exit found
-        if (corridor_center != -1)
+        if (found_corridor == 10)
         {
             start_angle = corridor_center;
             state = FACE_EXIT;
@@ -234,8 +255,8 @@ int robot::plan()
         {
             // save maxDist and maxDistDir
             state = MOVE_TO_MAX;
-            theta = angle+(max_dist_dir-center)*ang_inc;
-            dx = max_dist;
+            //theta = angle+(max_dist_front_dir-center)*ang_inc;
+            dx = dist_center/3;
             if (theta > M_PI)
                 theta -= 2*M_PI;
             else if (theta < -M_PI)
@@ -251,23 +272,23 @@ int robot::plan()
 
     case MOVE_TO_MAX:
         cout << angle-theta << endl;
-        if (fabs(angle-theta) < angle_compare_tol)
-        {
+//        if (fabs(angle-theta) < angle_compare_tol)
+//        {
             vtheta = 0;
             vx = maxTrans;
             cout << "dx: " << dx << " odom.x: " << odom.x << endl;
-            if (dist_center < dx/1.5 || !front_clear)
+            if (dist_center < dx || !front_clear)
             {
                 vx = 0;
                 state = SCAN_FOR_EXIT;
                 start_angle = angle;
-                theta = start_angle + M_PI;
+                theta = start_angle + (2*M_PI-4);
                 if (theta > M_PI)
                     theta -= 2*M_PI;
                 cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
             }
-        }
-        if (corridor_center != -1)
+//        }
+        if (found_corridor == 10)
         {
             start_angle = corridor_center;
             state = FACE_EXIT;
@@ -275,6 +296,11 @@ int robot::plan()
         break;
 
     case FACE_EXIT:
+        if (found_corridor == 0)
+        {
+            state = SCAN_FOR_EXIT;
+            break;
+        }
         if (corridor_center-center > 5)
             vtheta = maxRot;
         else if (corridor_center-center < -5)
@@ -299,20 +325,67 @@ int robot::plan()
         break;
 
     case DRIVE_TO_EXIT:
+        if (found_corridor == 0)
+        {
+            state = SCAN_FOR_EXIT;
+            break;
+        }
         cout << "Corridor center distance: " << corridor_center_dist << " at " << corridor_center << endl;
-        vx = maxTrans;
-        if ((dist_left < 2*min_dist_from_wall && dist_right < 2*min_dist_from_wall)) //corridor_center_dist < 1.5*min_dist_from_wall ||
+        if ((dist_left < 2*min_dist_from_wall && dist_right < 2*min_dist_from_wall))
         {
             vx = 0;
             state = FOLLOW_CORRIDOR;
             break;
         }
-        cout << left_clear << " " << right_clear << endl;
+        if (front_clear)
+        {
+            vx = maxTrans;
+            if (corridor_center-center > 2)
+            {
+                if (vtheta < 0)
+                    vtheta = 0;
+                vtheta += 0.2;
+                if (vtheta > maxRot)
+                    vtheta = maxRot;
+            }
+            else if (corridor_center-center < -2)
+            {
+                if (vtheta > 0)
+                    vtheta = 0;
+                vtheta -= 0.2;
+                if (vtheta < -maxRot)
+                    vtheta = -maxRot;
+            }
+            else
+                vtheta = 0;
+        }
+        else
+        {
+            vx = 0.2;
+            if (max_dist_front_dir-center > 2)
+            {
+                if (vtheta < 0)
+                    vtheta = 0;
+                vtheta += 0.2;
+                if (vtheta > maxRot/2)
+                    vtheta = maxRot/2;
+            }
+            else if (max_dist_front_dir-center < -2)
+            {
+                if (vtheta > 0)
+                    vtheta = 0;
+                vtheta -= 0.2;
+                if (vtheta < -maxRot/2)
+                    vtheta = -maxRot/2;
+            }
+            else
+                vtheta = 0;
+        }
         if (!left_clear)
         {
             if (vy > 0)
                 vy = 0;
-            vy -= 0.2;
+            vy -= 0.1;
             if (vy < -maxTrans)
                 vy = -maxTrans;
         }
@@ -320,30 +393,12 @@ int robot::plan()
         {
             if (vy < 0)
                 vy = 0;
-            vy += 0.2;
+            vy += 0.1;
             if (vy > maxTrans)
                 vy = maxTrans;
         }
         else
             vy = 0;
-        if (corridor_center-center > 2)
-        {
-            if (vtheta < 0)
-                vtheta = 0;
-            vtheta += 0.2;
-            if (vtheta > maxRot)
-                vtheta = maxRot;
-        }
-        else if (corridor_center-center < -2)
-        {
-            if (vtheta > 0)
-                vtheta = 0;
-            vtheta -= 0.2;
-            if (vtheta < -maxRot)
-                vtheta = -maxRot;
-        }
-        else
-            vtheta = 0;
         break;
 
     case FIND_WALL:
@@ -569,13 +624,15 @@ cout << vx << " " << vy << endl;
 
     case FOLLOW_CORRIDOR:
         vx = maxTrans;
-        if ((dist_left > 2*min_dist_from_wall && dist_right > 2*min_dist_from_wall) || dist_center < min_dist_from_wall)
+        cout << left_clear << " " << right_clear << endl;
+        if (left_clear && right_clear)
+                //|| dist_center < min_dist_from_wall)
         {
             cout << bool(dist_left > 2*min_dist_from_wall) << " " <<  bool(dist_right > 2*min_dist_from_wall) << " " <<  bool(dist_center < min_dist_from_wall) << endl;
             state = STOP;
             break;
         }
-        else if (dist_left > 1.5*min_dist_from_wall || dist_right > 1.5*min_dist_from_wall)
+        else if (scan.ranges[left-50] > 2*min_dist_from_wall && scan.ranges[right+50] > 2*min_dist_from_wall)
         {
             state = SCAN_FOR_EXIT;
             break;
@@ -586,11 +643,12 @@ cout << vx << " " << vy << endl;
             double left_av = 0;
             for (int i = 0; i < 20; ++i)
             {
-                right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i));
-                left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i));
+                right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i*ang_inc));
+                left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i*ang_inc));
             }
             right_av /= 20;
             left_av /= 20;
+            cout << left_av << " " << right_av << endl;
             if (right_av > dist_compare_tol && left_av < -dist_compare_tol)
                 vtheta = -maxRot;
             else if (left_av > dist_compare_tol && right_av < -dist_compare_tol)
@@ -742,12 +800,15 @@ void robot::printState()
         cout << "MOVE_TO_MAX" << endl;
         break;
     }
+    io.sendBaseReference(0,0,0);
+    sleep(1);
 }
 
 
 void robot::getMaxMinDist()
 {
     max_dist = scan.ranges[0];
+    max_dist_front = scan.ranges[center];
     min_dist = scan.range_max;
     max_dist_dir = min_dist_dir = 0;
     front_clear = true;
@@ -767,19 +828,26 @@ void robot::getMaxMinDist()
         }
         if (i < (right+center)/2)
         {
-            if (scan.ranges[i] < min_dist_from_wall)
+            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
                 right_clear = false;
         }
         else if (i > (left+center)/2)
         {
-            if (scan.ranges[i] < min_dist_from_wall)
+            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
             {
                 left_clear = false;
             }
         }
         else
+        {
             if (scan.ranges[i] < min_dist_from_wall)
                 front_clear = false;
+            if (scan.ranges[i] > max_dist_front)
+            {
+                max_dist_front = scan.ranges[i];
+                max_dist_front_dir = i;
+            }
+        }
     }
 }
 
