@@ -7,7 +7,7 @@ int main()
     // Setup
     cout << "Starting up" << endl;
     int pico_rate = 10;
-    float maxRot = 0.5;
+    float maxRot = 0.8;
     float maxTrans = 0.5;
     robot pico(pico_rate,maxTrans,maxRot);
     pico.io.speak("Pico Ready!");
