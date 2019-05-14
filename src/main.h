@@ -852,4 +852,77 @@ bool robot::computeTrajectoryToExit()
 //	return arriveExit;
     // @Muliang
 }
+
+bool robot::goToExit()
+{
+	
+	float exit_center_tol=0.08;                                               // the creterion for centrad
+
+	bool arriveExit = false;
+	bool arriveCenter = false;
+
+
+	
+	if (scan.ranges[corner1]< scan.ranges[corner2])                           // compare which corner is closer
+	{
+		int A = corner1;                                                      // closer corner always names as A
+		int B = corner2;                                                      // far corner always names as B
+	}
+	else
+	{
+		int B = corner1;
+		int A = corner2;
+	}
+	
+	float dist_A = scan.ranges[A];                                            // define the distance to close corner
+	float dist_B = scan.ranges[B];                                            // define the distance to far corner
+	float dir_A = A*ang_inc;                                                  // define the angle of A 
+	float dir_B = B*ang_inc;                                                  // define the angle of B
+	float theta = dir_A-dir_B;                                                // angle between line a and b
+
+	float width_exit = sqrt(pow(dist_A,2)+pow(dist_B^2,2)-2*dist_A*dist_B*cos(theta));   //width of exit
+	float beta = asin((dist_B/width_exit)*sin(theta));                        // angle of line b with respect the exit wall
+	float theta_1 = (center-B)*ang_inc;                                       // angle of line b with repect to center
+
+	float error = dist_A-dist_B;
+	
+	if (fabs(scan.ranges[corner1]-scan.ranges[corner2])>exit_center_tol || arriveCenter = false)      //not at the center line of the exit
+	{
+		vx = maxTrans*cos(theta_1+beta);
+		vy = maxTrans*sin(theta_1+beta);
+	}
+	else                                                                      // at the center line, line a = line b
+	{
+		arriveCenter = true;
+		vx = 0;
+		vy = 0;
+		float alpha = M_PI/2-(beta+theta_1);                                  // spinning until the front towards the exit
+		if (alpha>0.1)
+		{
+			vtheta = maxRot;
+		}
+		else
+		{
+			if (dist_B>width_exit/2+0.3)
+			{
+				if (error < 0.15)
+				{
+					vy = 0;
+					vx = maxTrans;
+				}
+				else
+				{
+					arriveCenter = false;
+				}
+			}
+			else
+			{
+				arriveExit = true;
+				vtheta = 0;
+				vx = 0;
+				vy = 0;
+			}
+		}
+	}
+return arriveExit
 #endif
