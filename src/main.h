@@ -89,6 +89,7 @@ struct robot
     int corridor_center;
     double corridor_center_dist;
     int found_corridor;
+    int scan_count;
 
     // Actuation Variables
     double vx;
@@ -140,6 +141,7 @@ robot::robot(int rate, float maxTrans, float maxRot)
     right = center - (M_PI/2)/ang_inc;
     left = center + (M_PI/2)/ang_inc;
     found_corridor = 0;
+    scan_count = 0;
 }
 
 
@@ -189,13 +191,13 @@ int robot::map()
             ++n_corners;
         }
     }
-    cout << "Number of corners: " << n_corners << endl;
+//    cout << "Number of corners: " << n_corners << endl;
     if (n_corners > 0)
     {
 //        cout << "Number of corners: " << n_corners << endl;
 //        cout << "Corner Start: " << corner_angle[0] << " Corner End: " << corner_angle[n_corners-1] << endl;
         corridor_center = (corner_angle[0]+corner_angle[n_corners-1])/2;
-        cout << corner_dist[0] << " " << corner_dist[n_corners-1] << endl;
+//        cout << corner_dist[0] << " " << corner_dist[n_corners-1] << endl;
         corridor_center_dist = (corner_dist[0]+corner_dist[n_corners-1])/2;
         if (fabs((scan.ranges[corner_angle[n_corners-1]] + scan.ranges[corner_angle[0]])/2 - scan.ranges[corridor_center]) < corner_compare_tol)
         {
@@ -246,50 +248,44 @@ int robot::plan()
         if (found_corridor == 10)
         {
             start_angle = corridor_center;
+            cout << "Found exit at: " << corridor_center << endl;
             state = FACE_EXIT;
             break;
         }
         // Sweep complete
-        cout << fabs(angle - theta) << endl;
+        cout << "Current angle: " << angle << " Destination Angle: " << theta << endl;
         if (fabs(angle - theta) < angle_compare_tol)
         {
-            // save maxDist and maxDistDir
-            state = MOVE_TO_MAX;
-            //theta = angle+(max_dist_front_dir-center)*ang_inc;
-            dx = dist_center/3;
-            if (theta > M_PI)
-                theta -= 2*M_PI;
-            else if (theta < -M_PI)
-                theta += 2*M_PI;
-            if (max_dist_dir < center)
-                vtheta = -maxRot;
+            ++scan_count;
+            if (scan_count > 4)
+                state = FIND_WALL;
             else
-                vtheta = maxRot;
-            cout << "Max at index: " << max_dist_dir << endl;
-            cout << "Angle to turn: " << theta-angle << endl;
+                state = MOVE_TO_MAX;
+            vtheta = 0;
+            dx = dist_center/3;
+            cout << "Did not find exit in this scan. Moving forward by: " << dx << endl;
+            cout << "Min at index: " << min_dist_dir << endl;
         }
         break;
 
     case MOVE_TO_MAX:
-        cout << angle-theta << endl;
-//        if (fabs(angle-theta) < angle_compare_tol)
-//        {
-            vtheta = 0;
-            vx = maxTrans;
-            cout << "dx: " << dx << " odom.x: " << odom.x << endl;
-            if (dist_center < dx || !front_clear)
-            {
-                vx = 0;
-                state = SCAN_FOR_EXIT;
-                start_angle = angle;
-                theta = start_angle + (2*M_PI-4);
-                if (theta > M_PI)
-                    theta -= 2*M_PI;
-                cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
-            }
-//        }
+        vtheta = 0;
+        vx = maxTrans;
+        cout << "dx: " << dx << " dist_center: " << dist_center << " Front clear: " << front_clear << endl;
+        if (dist_center < dx || !front_clear)
+        {
+            cout << "Reached max distance" << endl;
+            vx = 0;
+            state = SCAN_FOR_EXIT;
+            start_angle = angle;
+            theta = start_angle + (2*M_PI-4);
+            if (theta > M_PI)
+                theta -= 2*M_PI;
+            cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
+        }
         if (found_corridor == 10)
         {
+            cout << "Found exit at: " << corridor_center << endl;
             start_angle = corridor_center;
             state = FACE_EXIT;
         }
@@ -298,9 +294,11 @@ int robot::plan()
     case FACE_EXIT:
         if (found_corridor == 0)
         {
+            cout << "Lost exit; returning to scan" << endl;
             state = SCAN_FOR_EXIT;
             break;
         }
+        cout << "Corridor at: " << corridor_center << endl;
         if (corridor_center-center > 5)
             vtheta = maxRot;
         else if (corridor_center-center < -5)
@@ -315,24 +313,17 @@ int robot::plan()
         }
         break;
 
-    case EXIT_UNDETECTABLE:
-        // Obtain direction and half distance of maxDist
-        break;
-
-    case ORIENT_TO_EXIT_WALL:
-        // if facing wall
-            // state = DRIVE_TO_EXIT
-        break;
-
     case DRIVE_TO_EXIT:
         if (found_corridor == 0)
         {
+            cout << "Lost exit; returning to scan" << endl;
             state = SCAN_FOR_EXIT;
             break;
         }
-        cout << "Corridor center distance: " << corridor_center_dist << " at " << corridor_center << endl;
+        cout << left_clear << front_clear << right_clear <<" Corridor center distance: " << corridor_center_dist << " at " << corridor_center << endl;
         if ((dist_left < 2*min_dist_from_wall && dist_right < 2*min_dist_from_wall))
         {
+            cout << "Arrived at corridor" << endl;
             vx = 0;
             state = FOLLOW_CORRIDOR;
             break;
@@ -434,38 +425,40 @@ cout << vx << " " << vy << endl;
     case ALIGN_TO_WALL:
         if (wall_side == RIGHT)
         {
-            vtheta = 0;
-            float dist_sum = 0;
-            for (int i = 0; i < 50; ++i)
+            double right_av = 0;
+            for (int i = 0; i < 20; ++i)
             {
-                dist_sum += fabs(scan.ranges[right+i]-scan.ranges[right-i]);
+                right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i*ang_inc));
             }
-            if (dist_sum < 50*dist_compare_tol*0.8)
-                state = ALIGN_TO_WALL;
+            right_av /= 20;
+            cout << "Right Average: " << right_av << endl;
+            if (right_av > dist_compare_tol)
+                vtheta = -maxRot;
+            else if (right_av < -dist_compare_tol)
+                vtheta = maxRot;
             else
             {
-                if (start_angle < right)
-                    vtheta = -maxRot;
-                else
-                    vtheta = maxRot;
+                vtheta = 0;
+                state = FOLLOW_WALL;
             }
         }
         else
         {
-            vtheta = 0;
-            float dist_sum = 0;
-            for (int i = 0; i < 50; ++i)
+            double left_av = 0;
+            for (int i = 0; i < 20; ++i)
             {
-                dist_sum += fabs(scan.ranges[left+i]-scan.ranges[left-i]);
+                left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i*ang_inc));
             }
-            if (dist_sum < 50*dist_compare_tol*0.8)
-                state = ALIGN_TO_WALL;
+            left_av /= 20;
+            cout << "Left Average: " << left_av << endl;
+            if (left_av < -dist_compare_tol)
+                vtheta = -maxRot;
+            else if (left_av > dist_compare_tol)
+                vtheta = maxRot;
             else
             {
-                if (start_angle < left)
-                    vtheta = -maxRot;
-                else
-                    vtheta = maxRot;
+                vtheta = 0;
+                state = FOLLOW_WALL;
             }
         }
         break;
@@ -624,11 +617,11 @@ cout << vx << " " << vy << endl;
 
     case FOLLOW_CORRIDOR:
         vx = maxTrans;
-        cout << left_clear << " " << right_clear << endl;
+        cout << left_clear << right_clear;
         if (left_clear && right_clear)
                 //|| dist_center < min_dist_from_wall)
         {
-            cout << bool(dist_left > 2*min_dist_from_wall) << " " <<  bool(dist_right > 2*min_dist_from_wall) << " " <<  bool(dist_center < min_dist_from_wall) << endl;
+            cout << dist_left << " " <<  dist_right << " " <<  dist_center << endl;
             state = STOP;
             break;
         }

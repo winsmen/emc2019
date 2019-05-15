@@ -30,9 +30,16 @@ int main()
             break;
     }
 
-    pico.io.speak("Goodbye");
+    pico.io.speak("I am free!!");
     pico.io.sendBaseReference(0,0,0);
 
-    cout << "Hello World" << endl;
+    cout << "Goodbye!" << endl;
     return 0;
 }
+
+// TODO
+/*
+ * pico setState, getState functions to assign and read robot state - merge with printState()
+ * measure least distance to visible walls
+ *
+ */
