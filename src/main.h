@@ -833,8 +833,11 @@ void robot::getMaxMinDist()
         }
         else
         {
-            if (scan.ranges[i] < min_dist_from_wall)
+            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
+            {
                 front_clear = false;
+                cout << scan.ranges[i] << endl;
+            }
             if (scan.ranges[i] > max_dist_front)
             {
                 max_dist_front = scan.ranges[i];
