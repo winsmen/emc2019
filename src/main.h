@@ -380,7 +380,7 @@ int robot::plan()
             if (vy < -maxTrans)
                 vy = -maxTrans;
         }
-        else if (!right_clear)
+        if (!right_clear)
         {
             if (vy < 0)
                 vy = 0;
@@ -388,7 +388,7 @@ int robot::plan()
             if (vy > maxTrans)
                 vy = maxTrans;
         }
-        else
+        if (left_clear && right_clear)
             vy = 0;
         break;
 
