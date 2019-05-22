@@ -42,10 +42,10 @@ enum sys_state
     FOLLOW_CORRIDOR
 };
 
-struct Corner
+class Point_
 {
-    double dist;
-    double ang_index;
+    double x;
+    double y;
 };
 
 
@@ -134,8 +134,22 @@ struct robot
     // Misc
     void printState();
     void log(string text);
+    sys_state getState();
+    void setState(sys_state s);
 
 };
+
+
+sys_state robot::getState()
+{
+    return state;
+}
+
+void robot::setState(sys_state s)
+{
+    state = s;
+    printState();
+}
 
 void robot::log(string text)
 {
@@ -166,11 +180,16 @@ robot::robot(int rate, float maxTrans, float maxRot)
     left = center + (M_PI/2)/ang_inc;
     found_corridor = 0;
     scan_count = 0;
-    outfile.open("laser.csv", ios::out | ios::trunc);
+    outfile.open("log.txt", ios::out | ios::trunc);
+    io.speak("Pico ready");
+    state = STARTUP;
+    cout << "Pico State: STARTUP" << endl;
 }
 
 robot::~robot()
 {
+    io.speak("Goodbye");
+    io.sendBaseReference(0,0,0);
     outfile.close();
 }
 
