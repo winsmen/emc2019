@@ -9,10 +9,15 @@
 #include <math.h>
 #include <stdlib.h>
 #include <cmath>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+#include <string.h>
 
 #define LEFT    1
 #define RIGHT   2
 
+using namespace cv;
 using namespace std;
 
 enum sys_state
@@ -55,7 +60,7 @@ struct robot
     float maxRot;
     static const float min_dist_from_wall = 0.6;
     static const float dist_compare_tol = 0.01;
-    static const float corner_compare_tol = 0.5;
+    static const float corner_compare_tol = 0.1;
     static const float angle_compare_tol = 0.1;
     sys_state state;
 
@@ -91,6 +96,9 @@ struct robot
     int found_corridor;
     int scan_count;
 
+    //Mapping Variables
+    Mat frame;
+
     // Actuation Variables
     double vx;
     double vy;
@@ -114,6 +122,7 @@ struct robot
 
     // Mapping
     bool computeTrajectoryToExit();
+    void displayMap();
 
     // Planning
 
@@ -183,7 +192,7 @@ int robot::map()
             den += 2*j;
         }
         dist_av /= den;
-        if ((dist_av - scan.ranges[i] > corner_compare_tol || fabs(scan.ranges[i]-scan.ranges[i-1]) > 0.2)
+        if ((dist_av - scan.ranges[i] > corner_compare_tol || fabs(scan.ranges[i]-scan.ranges[i-1]) > 0.25)
                 && scan.ranges[i] > 0.1)
         {
             corner_dist[n_corners] = scan.ranges[i];
@@ -224,7 +233,50 @@ int robot::map()
         if (found_corridor < 0)
             found_corridor = 0;
     }
+    displayMap();
     return 0;
+}
+
+
+void polar2cart(double r,double theta, double &x,double &y, double x_off = 0, double y_off = 0)
+{
+    x = x_off + r*sin(theta)*40;
+    y = y_off - r*cos(theta)*40;
+}
+
+
+void robot::displayMap()
+{
+    frame = Mat::zeros(500,500,CV_8UC3);
+    double x_c = 500/2.0;
+    double y_c = 500/2.0;
+    double x,y;
+    for (int i = 2*padding; i < scan_span-2*padding; ++i)
+    {
+        polar2cart(scan.ranges[i],(i*-ang_inc)+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(255,0,0),1,8);
+    }
+//    polar2cart(0,0,x,y,x_c,y_c);
+//    circle(frame,Point(x,y),3,Scalar(255,0,0),1,8);
+    if (n_corners > 1)
+    {
+        for (int i = 0; i < n_corners; ++i)
+        {
+            polar2cart(corner_dist[i],(corner_angle[i]*-ang_inc)+2,x,y,x_c,y_c);
+            circle(frame,Point(x,y),1,Scalar(255,255,0),1,8);
+        }
+    }
+    if (found_corridor == 10)
+    {
+        polar2cart(corridor_center_dist,(corridor_center*-ang_inc)+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(0,255,0),1,8);
+        polar2cart(corner_dist[0],(corner_angle[0]*-ang_inc)+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
+        polar2cart(corner_dist[n_corners-1],(corner_angle[n_corners-1]*-ang_inc)+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
+    }
+    imshow("Visualization",frame);
+    waitKey(25);
 }
 
 
