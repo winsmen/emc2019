@@ -71,12 +71,12 @@ struct robot
     int right;
     int left;
     // Measurement Variables
-    double dist_center;
-    double dist_right;
-    double dist_left;
-    bool front_clear;
-    bool right_clear;
-    bool left_clear;
+    extern double dist_center;
+    extern double dist_right;
+    extern double dist_left;
+    extern bool front_clear;
+    extern bool right_clear;
+    extern bool left_clear;
     double max_dist;
     double max_dist_dir;
     double max_dist_front;
@@ -88,21 +88,21 @@ struct robot
     static const int av_range = 20;
     double distance[1000-2*padding];
     int wall_side;
-    int n_corners;
+    extern int n_corners;
     double corner_dist[1000];
     int corner_angle[1000];
     int corridor_center;
     double corridor_center_dist;
-    int found_corridor;
+    extern int found_corridor;
     int scan_count;
 
     //Mapping Variables
     Mat frame;
 
     // Actuation Variables
-    double vx;
-    double vy;
-    double vtheta;
+    extern double vx;
+    extern double vy;
+    extern double vtheta;
     double dx;
     double dy;
     double theta;
@@ -282,7 +282,7 @@ void robot::displayMap()
 
 int robot::plan()
 {
-    sys_state prevState = state;
+    extern sys_state prevState = state;
     switch(state)
     {
     case STARTUP:
