@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <emc/io.h>
 #include <emc/rate.h>
-#include "config.h"
 #include <math.h>
 #include <stdlib.h>
 #include <cmath>
@@ -13,6 +12,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
 #include <string.h>
+#include <fstream>
 
 #define LEFT    1
 #define RIGHT   2
