@@ -99,6 +99,8 @@ struct robot
     //Mapping Variables
     Mat frame;
 
+    ofstream outfile;
+
     // Actuation Variables
     double vx;
     double vy;
@@ -110,6 +112,7 @@ struct robot
 
     // Constructor
     robot(int rate, float maxTrans, float maxRot);
+    ~robot();
 
     // Main Functions
     int measure();
@@ -130,8 +133,20 @@ struct robot
 
     // Misc
     void printState();
+    void log(string text);
 
 };
+
+void robot::log(string text)
+{
+    outfile << text << endl;
+    cout << text << endl;
+}
+//
+//    outfile.open("laser.csv", ios::out | ios::trunc);
+//    outfile << "state" << ',' << "n_corners" << ',' << "found_corridor"  << ',' <<"dist_center"  << "dist_right"  << ','<< "dist_left"  << ','<< "vx"  << ','<< "vy"  << ','<< "vtheta" << endl;
+//        outfile << state << ',' << n_corners << ',' << found_corridor << dist_center << dist_right << dist_left << vx << vy << vtheta << endl;
+//    outfile.close();
 
 
 robot::robot(int rate, float maxTrans, float maxRot)
@@ -151,8 +166,13 @@ robot::robot(int rate, float maxTrans, float maxRot)
     left = center + (M_PI/2)/ang_inc;
     found_corridor = 0;
     scan_count = 0;
+    outfile.open("laser.csv", ios::out | ios::trunc);
 }
 
+robot::~robot()
+{
+    outfile.close();
+}
 
 int robot::measure()
 {

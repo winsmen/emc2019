@@ -12,10 +12,6 @@ int main()
     robot pico(pico_rate,maxTrans,maxRot);
     pico.io.speak("Pico Ready!");
 
-//    ofstream outfile;
-//    outfile.open("laser.csv", ios::out | ios::trunc);
-//    outfile << "state" << ',' << "n_corners" << ',' << "found_corridor"  << ',' <<"dist_center"  << "dist_right"  << ','<< "dist_left"  << ','<< "vx"  << ','<< "vy"  << ','<< "vtheta" << endl;
-
     pico.state = STARTUP;
     cout << "Pico State: STARTUP" << endl;
     while(pico.io.ok())
@@ -32,10 +28,7 @@ int main()
         pico.r.sleep();
         if (pico.state == STOP)
             break;
-//        outfile << state << ',' << n_corners << ',' << found_corridor << dist_center << dist_right << dist_left << vx << vy << vtheta << endl;
-
     }
-//    outfile.close();
     pico.io.speak("I am free!!");
     pico.io.sendBaseReference(0,0,0);
 
