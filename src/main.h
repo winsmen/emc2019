@@ -223,11 +223,11 @@ int robot::map()
     n_corners = 0;
     for (int i = 2*padding; i < scan_span-2*padding; ++i)
     {
-        float dist_av = (av_range+1)*scan.ranges[i];
+        float dist_av = 2*(av_range+1)*scan.ranges[i];
         int den = av_range+1;
         for (int j = 1; j < av_range; ++j)
         {
-            dist_av += j*scan.ranges[i+j] + j*scan.ranges[i-j];
+            dist_av += 2*j*scan.ranges[i+j] + 2*j*scan.ranges[i-j];
             den += 2*j;
         }
         dist_av /= den;
@@ -391,9 +391,9 @@ int robot::plan()
         }
         cout << "Corridor at: " << corridor_center << endl;
         if (corridor_center-center > 5)
-            vtheta = maxRot;
+            vtheta = min((corridor_center-center)/35.0,double(maxRot));
         else if (corridor_center-center < -5)
-            vtheta = -maxRot;
+            vtheta = max((corridor_center-center)/35.0,double(-maxRot));
         else
         {
             start_angle = corridor_center;
@@ -426,7 +426,7 @@ int robot::plan()
             {
                 if (vtheta < 0)
                     vtheta = 0;
-                vtheta += 0.2;
+                vtheta += 0.1;
                 if (vtheta > maxRot)
                     vtheta = maxRot;
             }
@@ -434,7 +434,7 @@ int robot::plan()
             {
                 if (vtheta > 0)
                     vtheta = 0;
-                vtheta -= 0.2;
+                vtheta -= 0.1;
                 if (vtheta < -maxRot)
                     vtheta = -maxRot;
             }
@@ -448,7 +448,7 @@ int robot::plan()
             {
                 if (vtheta < 0)
                     vtheta = 0;
-                vtheta += 0.2;
+                vtheta += 0.1;
                 if (vtheta > maxRot/2)
                     vtheta = maxRot/2;
             }
@@ -456,7 +456,7 @@ int robot::plan()
             {
                 if (vtheta > 0)
                     vtheta = 0;
-                vtheta -= 0.2;
+                vtheta -= 0.1;
                 if (vtheta < -maxRot/2)
                     vtheta = -maxRot/2;
             }
