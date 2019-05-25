@@ -180,7 +180,7 @@ robot::robot(int rate, float maxTrans, float maxRot)
     left = center + (M_PI/2)/ang_inc;
     found_corridor = 0;
     scan_count = 0;
-    outfile.open("log.txt", ios::out | ios::trunc);
+    outfile.open("../log.txt", ios::out | ios::trunc);
     io.speak("Pico ready");
     state = STARTUP;
     cout << "Pico State: STARTUP" << endl;
