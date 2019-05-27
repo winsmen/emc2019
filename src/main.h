@@ -13,6 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <string.h>
 #include <fstream>
+#include <sstream>
 
 #define LEFT    1
 #define RIGHT   2
@@ -59,6 +60,7 @@ string to_string(const T& n)
 
 string text;
 string comma(",");
+
 struct robot
 {
     // Robot Variables
@@ -172,6 +174,7 @@ void robot::log(string text)
     {
         outfile << text << endl;
         cout << text << endl;
+    }
 }
 //
 //    outfile.open("laser.csv", ios::out | ios::trunc);
@@ -198,6 +201,7 @@ robot::robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
     found_corridor = 0;
     scan_count = 0;
     outfile.open("../log.txt", ios::out | ios::trunc);
+    outfile<<"log is working"<<endl;
     io.speak("Pico ready");
     cout << "Pico State: FOLLOW_CORRIDOR" << endl;
 }
