@@ -42,6 +42,16 @@ enum sys_state
     FOLLOW_CORRIDOR
 };
 
+enum room_nr // depends on the number of rooms present in the given Json file. This can be implemented manually once the map is given
+{
+    origin
+    room_2
+    room_3
+    room_4
+    room_5
+    room_6
+};
+
 class Point_
 {
     double x;
@@ -119,6 +129,7 @@ struct robot
     int map();
     int plan();
     int actuate();
+    int room(); //Calculates in which room the robot is present
 
     // Measurement
     void getMaxMinDist();
@@ -361,6 +372,26 @@ void robot::displayMap()
     waitKey(25);
 }
 
+int robot::room()
+{
+    room_nr prevRoom = Room;
+    switch (Room) {
+    {
+    case origin:
+        if(x>2 && x<4 && y>0 && y<2){
+        Room = room_2;
+    }
+    break;
+        
+    }
+    case room_2:
+        if(x<2 && y<2){
+            Room = origin;
+        }
+        if(x>4 && x<6 && y>2 && y<4)
+            Room = room_3;
+    }
+};
 
 int robot::plan()
 {
