@@ -1,0 +1,68 @@
+#include <iostream>
+#include <stdlib.h>     /* abs */
+
+#define WIDTH 4
+#define HEIGHT 3
+
+using namespace std;
+
+double x=34;       // the current x coordinate
+double y=26;       // the current y coordinate
+double x_dev[4];
+double y_dev[4];
+double cabinet [HEIGHT][WIDTH]; //the coordinate array of four cabinet
+int n;
+double cabinet_x[] = {10,20,30,40}; // x coordinate of c0, c1, c2, c3
+double cabinet_y[] = {10,20,30,40}; // y coordinate of c0, c1, c2, c3
+double x_min,y_min,candidate_1,candidate_2;
+int c,d, cabinet_order_x=-1,cabinet_order_y=-1,cabinet_order;
+
+int main ()
+{
+  for (n=0; n<=WIDTH; n++)
+    {
+      cabinet[n][1]=n-1;    // first row of cabinet: cabinet order
+      cabinet[n][2]=cabinet_x[n-1]; // second row of cabinet: x coordinates of cabinets
+      cabinet[n][3]=cabinet_y[n-1]; // third row of cabinet: y coordinates of cabinets
+
+      x_dev[n] = abs(x-cabinet[n][2]); // compute the deviations between current location and all cabinets in x axis
+      y_dev[n] = abs(y-cabinet[n][3]); // compute the deviations between current location and all cabinets in y axis
+    }
+
+  x_min = x_dev[0]; //initialize the smallest x deviation
+  y_min = y_dev[0]; //initialize the smallest y deviation
+
+  for (c = 0; c <= WIDTH; c++) // find the cabinet order which has smallest x deviation
+  {
+      if (x_dev[c] < x_min)
+      {
+          x_min = x_dev[c];
+          cabinet_order_x = cabinet_order_x+1;
+      }
+  }
+
+  for (d = 0; d <= WIDTH; d++) // find the cabinet order which has smallest y deviation
+  {
+      if (y_dev[d] < y_min)
+      {
+          y_min = y_dev[d];
+          cabinet_order_y = cabinet_order_y+1;
+      }
+  }
+
+  if (cabinet_order_x == cabinet_order_y) // if obtain cabinet orders from two axis are the same, then
+      cabinet_order = cabinet_order_x;
+  else // if obtain cabinet orders from two axis are different, sum the deviation in x and y axis, the smaller one is the cabinet order
+  {
+      candidate_1 = x_dev[cabinet_order_x+1]+y_dev[cabinet_order_x+1];
+      candidate_2 = x_dev[cabinet_order_y+1]+y_dev[cabinet_order_y+1];
+      if (candidate_1<candidate_2)
+          cabinet_order = cabinet_order_x;
+      else
+          cabinet_order = cabinet_order_y;
+  }
+
+  cout << "the cabinet is: c"<< cabinet_order << endl;
+}
+
+
