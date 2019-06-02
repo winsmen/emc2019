@@ -390,6 +390,7 @@ int robot::plan()
     sys_state prevState = state;
     switch(state)
     {
+        /*
      case ENTER_CABINET_ORDER:
         int myint;
         cout << "Please enter the order of the cabinets (enter 1000 to end):\n";
@@ -401,7 +402,7 @@ int robot::plan()
         cout << int(cabinet_number.size()) << " cabinets will be reached.\n";
 	state = STARTUP;
         break;
-
+*/
     case STARTUP:
         state = SCAN_FOR_EXIT;
         start_angle = angle;
