@@ -2,32 +2,8 @@
 #define MEASUREMENT
 
 #include <emc/io.h>
-
-
-struct LRFpoint
-{
-    double d;   //Distance
-//    double a;   //Angle
-    int i;      //Index
-    LRFpoint(double d, int i)
-    {
-        LRFpoint::d = d;
-        LRFpoint::i = i;
-//        a = (i-center)*ang_inc;
-    }
-    LRFpoint()
-    {
-        d = -1;
-//        a = -1;
-        i = -1;
-    }
-    void assignPoint(double d, int i)
-    {
-        LRFpoint::d = d;
-        LRFpoint::i = i;
-//        a = (i-center)*ang_inc;
-    }
-};
+#include <fstream>
+#include "common_resources.h"
 
 
 class Measurement
@@ -43,6 +19,7 @@ class Measurement
     int av_range;
     int min_range;
     float min_permit_dist;
+    ofstream measure_log;
 
     //Measured variables
     LRFpoint center, right, left;
@@ -56,6 +33,7 @@ class Measurement
 public:
     Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom,
                 int side_range, int padding, int av_range, int min_range, float min_permit_dist);
+    ~Measurement();
     int measure();
 };
 
@@ -76,6 +54,14 @@ Measurement::Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &o
     center.assignPoint(scan.ranges[center_index],center_index);
     right.assignPoint(scan.ranges[right_index],right_index);
     left.assignPoint(scan.ranges[left_index],left_index);
+    measure_log.open("measure_log.txt", ios::out | ios::trunc);
+    measure_log << "Measurment Log: <date> <time>" << endl;
+}
+
+Measurement::~Measurement()
+{
+    measure_log << "End of Log" << endl;
+    measure_log.close();
 }
 
 
@@ -108,10 +94,6 @@ void Measurement::getMaxMinDist()
 {
     farthest.assignPoint(scan.ranges[0],scan.range_min);
     nearest.assignPoint(scan.ranges[0],scan.range_max);
-//    max_dist = scan.ranges[0];
-//    max_dist_front = scan.ranges[center];
-//    min_dist = scan.range_max;
-//    max_dist_dir = min_dist_dir = 0;
     front_clear = true;
     right_clear = true;
     left_clear = true;
@@ -120,14 +102,10 @@ void Measurement::getMaxMinDist()
         if (scan.ranges[i] > farthest.d)
         {
             farthest.assignPoint(scan.ranges[i],i);
-//            max_dist = scan.ranges[i];
-//            max_dist_dir = i;
         }
         else if (scan.ranges[i] < nearest.d && scan.ranges[i] > min_range)
         {
             nearest.assignPoint(scan.ranges[i],i);
-//            min_dist = scan.ranges[i];
-//            min_dist_dir = i;
         }
         if (abs(i - right.i) < side_range)
         {
@@ -147,11 +125,6 @@ void Measurement::getMaxMinDist()
             {
                 front_clear = false;
             }
-//            if (scan.ranges[i] > max_dist_front)
-//            {
-//                max_dist_front = scan.ranges[i];
-//                max_dist_front_dir = i;
-//            }
         }
     }
 }

@@ -45,25 +45,15 @@ enum sys_state
     FOLLOW_CORRIDOR
 };
 
-class Point_
-{
-    double x;
-    double y;
-};
-
-// define to_string function
-template<typename T>
-string to_string(const T& n)
-{
-    ostringstream ss;
-    ss << n;
-    return ss.str();
-}
-
 string text;
 string comma(",");
 
-class robot
+class World
+{
+
+};
+
+class Robot
 {
 public:
     // Robot Variables
@@ -129,8 +119,8 @@ public:
     double start_angle;
 
     // Constructor
-    robot(int rate, float maxTrans, float maxRot, sys_state state);
-    ~robot();
+    Robot(int rate, float maxTrans, float maxRot, sys_state state);
+    ~Robot();
 
     // Main Functions
     int measure();
@@ -158,18 +148,18 @@ public:
 };
 
 
-sys_state robot::getState()
+sys_state Robot::getState()
 {
     return state;
 }
 
-void robot::setState(sys_state s)
+void Robot::setState(sys_state s)
 {
     state = s;
     printState();
 }
 
-void robot::log(string text)
+void Robot::log(string text)
 {
     if (log_flag == 1)
         outfile << text << endl;
@@ -188,7 +178,7 @@ void robot::log(string text)
 //    outfile.close();
 
 
-robot::robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
+Robot::Robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
     : r(rate), maxTrans(maxTrans), maxRot(maxRot), state(state)
 {
     int maxIter = 20;
@@ -212,14 +202,14 @@ robot::robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
     sense = new Measurement(io,scan,odom,20,padding,av_range,0.1,min_dist_from_wall);
 }
 
-robot::~robot()
+Robot::~Robot()
 {
     io.speak("Goodbye");
     io.sendBaseReference(0,0,0);
     outfile.close();
 }
 
-int robot::measure()
+int Robot::measure()
 {
     /* Return values:
      * 1  - Success
@@ -244,7 +234,7 @@ int robot::measure()
 }
 
 
-int robot::map()
+int Robot::map()
 {
     n_corners = 0;
     int mult = 2;
@@ -307,14 +297,7 @@ int robot::map()
 }
 
 
-void polar2cart(double r,double theta, double &x,double &y, double x_off = 0, double y_off = 0)
-{
-    x = x_off + r*sin(theta)*80;
-    y = y_off - r*cos(theta)*80;
-}
-
-
-void robot::displayMap()
+void Robot::displayMap()
 {
     int frame_dim = 600;
     frame = Mat::zeros(frame_dim,frame_dim,CV_8UC3);
@@ -391,7 +374,7 @@ void robot::displayMap()
 }
 
 
-int robot::plan()
+int Robot::plan()
 {
     sys_state prevState = state;
     switch(state)
@@ -831,7 +814,7 @@ cout << vx << " " << vy << endl;
             }
             right_av /= 20;
             left_av /= 20;
-            text = to_string(left_av) + " " + to_string(right_a);
+            text = to_string(left_av) + " " + to_string(right_av);
             log(text);
             //cout << left_av << " " << right_av << endl;
             if (right_av > dist_compare_tol && left_av < -dist_compare_tol)
@@ -873,7 +856,7 @@ cout << vx << " " << vy << endl;
 }
 
 
-int robot::actuate()
+int Robot::actuate()
 {
     switch(state)
     {
@@ -945,7 +928,7 @@ int robot::actuate()
     return 0;
 }
 
-void robot::printState()
+void Robot::printState()
 {
     text = "Pico State: ";
     log(text);
@@ -1028,7 +1011,7 @@ void robot::printState()
 }
 
 
-void robot::getMaxMinDist()
+void Robot::getMaxMinDist()
 {
     max_dist = scan.ranges[0];
     max_dist_front = scan.ranges[center];
@@ -1077,7 +1060,7 @@ void robot::getMaxMinDist()
     }
 }
 
-bool robot::computeTrajectoryToExit()
+bool Robot::computeTrajectoryToExit()
 {
 //    bool arriveCenter = false;                        // not on the center line
 //	bool arriveExit = false;                          // not arrived at the exit
