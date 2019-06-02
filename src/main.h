@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <emc/io.h>
 #include <emc/rate.h>
-#include <math.h>
 #include <stdlib.h>
 #include <cmath>
 #include <opencv2/core/core.hpp>
@@ -14,11 +13,12 @@
 #include <string.h>
 #include <fstream>
 #include <sstream>
+#include <ctime>
 
 #include "measurement.h"
 
-#define LEFT    1
-#define RIGHT   2
+#define LEFT        1
+#define RIGHT       2
 
 using namespace cv;
 using namespace std;
@@ -48,10 +48,6 @@ enum sys_state
 string text;
 string comma(",");
 
-class World
-{
-
-};
 
 class Robot
 {
@@ -68,27 +64,30 @@ public:
     static const float corner_compare_tol = 0.1;
     static const float angle_compare_tol = 0.1;
     sys_state state;
+    Performance specs;
+    Measurement *sense;
+    World world;
 
     // Measurement Constants
     double ang_inc;
     int scan_span;
-    int center;
-    int right;
-    int left;
+//    int center;
+//    int right;
+//    int left;
     // Measurement Variables
-    double dist_center;
-    double dist_right;
-    double dist_left;
-    bool front_clear;
-    bool right_clear;
-    bool left_clear;
-    double max_dist;
-    double max_dist_dir;
-    double max_dist_front;
-    double max_dist_front_dir;
-    double min_dist;
-    double min_dist_dir;
-    double angle;
+//    double dist_center;
+//    double dist_right;
+//    double dist_left;
+//    bool front_clear;
+//    bool right_clear;
+//    bool left_clear;
+//    double max_dist;
+//    double max_dist_dir;
+//    double max_dist_front;
+//    double max_dist_front_dir;
+//    double min_dist;
+//    double min_dist_dir;
+//    double angle;
     static const int padding = 15;
     static const int av_range = 20;
     double distance[1000-2*(padding+av_range)];    //unused
@@ -101,8 +100,6 @@ public:
     int found_corridor;
     int scan_count;
     static const int log_flag = 3;
-
-    Measurement *sense;
 
     //Mapping Variables
     Mat frame;
@@ -119,17 +116,17 @@ public:
     double start_angle;
 
     // Constructor
-    Robot(int rate, float maxTrans, float maxRot, sys_state state);
+    Robot(Performance specs, sys_state state);
     ~Robot();
 
     // Main Functions
-    int measure();
+    //int measure();
     int map();
     int plan();
     int actuate();
 
     // Measurement
-    void getMaxMinDist();
+    //void getMaxMinDist();
 
     // Mapping
     bool computeTrajectoryToExit();
@@ -178,9 +175,13 @@ void Robot::log(string text)
 //    outfile.close();
 
 
-Robot::Robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
-    : r(rate), maxTrans(maxTrans), maxRot(maxRot), state(state)
+Robot::Robot(Performance s, sys_state state=STARTUP)
+    : specs(s), r(s.heartbeat), maxTrans(s.maxTrans), maxRot(s.maxRot), state(state)
 {
+    outfile.open("../log.txt", ios::out | ios::trunc);
+    time_t now = time(0);
+    log("Pico Main Log: " + string(ctime(&now)));
+    log("Waiting for IO modules");
     int maxIter = 20;
     while((!io.readLaserData(scan) || !io.readOdometryData(odom))
           && maxIter > 0)
@@ -188,18 +189,15 @@ Robot::Robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
         r.sleep();
         --maxIter;
     }
+    log("IO modules ready");
     ang_inc = scan.angle_increment;
     scan_span = scan.ranges.size();
-    center = (scan_span-1)/2;
-    right = center - (M_PI/2)/ang_inc;
-    left = center + (M_PI/2)/ang_inc;
     found_corridor = 0;
     scan_count = 0;
-    outfile.open("../log.txt", ios::out | ios::trunc);
-    outfile<<"log is working"<<endl;
+    log("Initialising Measurement Module");
+    sense = new Measurement(io,scan,odom,world,specs);
+    log("Pico State: STARTUP");
     io.speak("Pico ready");
-    cout << "Pico State: FOLLOW_CORRIDOR" << endl;
-    sense = new Measurement(io,scan,odom,20,padding,av_range,0.1,min_dist_from_wall);
 }
 
 Robot::~Robot()
@@ -209,13 +207,13 @@ Robot::~Robot()
     outfile.close();
 }
 
-int Robot::measure()
+/*int Robot::measure()
 {
     /* Return values:
      * 1  - Success
      * 0  - LRF read failed, Odometer read success
      * -1 - LRF read success, Odometer read failed
-     * -2 - LRF and Odometer read failed*/
+     * -2 - LRF and Odometer read failed*
     int ret = 1;
     if (io.readLaserData(scan))
     {
@@ -231,7 +229,7 @@ int Robot::measure()
     else
         ret -= 2;
     return ret;
-}
+}*/
 
 
 int Robot::map()
@@ -323,13 +321,13 @@ void Robot::displayMap()
         {
 //            right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i*ang_inc));
 //            left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i*ang_inc));
-            polar2cart((scan.ranges[right]/cos(i*ang_inc))+dist_compare_tol,((right+i)*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart((scan.ranges[world.right.i]/cos(i*ang_inc))+dist_compare_tol,((world.right.i+i)*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[right]/cos(i*ang_inc))-dist_compare_tol,((right+i)*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart((scan.ranges[world.right.i]/cos(i*ang_inc))-dist_compare_tol,((world.right.i+i)*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[left]/cos(i*ang_inc))+dist_compare_tol,((left-i)*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart((scan.ranges[world.left.i]/cos(i*ang_inc))+dist_compare_tol,((world.left.i-i)*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[left]/cos(i*ang_inc))-dist_compare_tol,((left-i)*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart((scan.ranges[world.left.i]/cos(i*ang_inc))-dist_compare_tol,((world.left.i-i)*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
         }
 //        right_av /= 20;
@@ -381,7 +379,7 @@ int Robot::plan()
     {
     case STARTUP:
         state = SCAN_FOR_EXIT;
-        start_angle = angle;
+        start_angle = world.angle;
         theta = start_angle + (2*M_PI-4);
         if (theta > M_PI)
             theta -= 2*M_PI;
@@ -403,8 +401,8 @@ int Robot::plan()
             break;
         }
         // Sweep complete
-        cout << "Current angle: " << angle << " Destination Angle: " << theta << endl;
-        if (fabs(angle - theta) < angle_compare_tol)
+        cout << "Current angle: " << world.angle << " Destination Angle: " << theta << endl;
+        if (fabs(world.angle - theta) < angle_compare_tol)
         {
             ++scan_count;
             if (scan_count > 4)
@@ -412,11 +410,11 @@ int Robot::plan()
             else
                 state = MOVE_TO_MAX;
             vtheta = 0;
-            dx = dist_center/3;
+            dx = world.center.d/3;
             text =  "Did not find exit in this scan. Moving forward by: " + to_string(dx); 
             log(text);
             //cout << "Did not find exit in this scan. Moving forward by: " << dx << endl;
-            text = "Min at index: " + to_string(min_dist_dir);
+            text = "Min at index: " + to_string(world.nearest.i);
             log(text);
             //cout << "Min at index: " << min_dist_dir << endl;
         }
@@ -425,17 +423,17 @@ int Robot::plan()
     case MOVE_TO_MAX:
         vtheta = 0;
         vx = maxTrans;
-        text = "dx: " + to_string(dx) + " dist_center: " + to_string(dist_center) + " Front clear: " + to_string(front_clear);
+        text = "dx: " + to_string(dx) + " dist_center: " + to_string(world.center.d) + " Front clear: " + to_string(world.front_clear);
         log(text);
         //cout << "dx: " << dx << " dist_center: " << dist_center << " Front clear: " << front_clear << endl;
-        if (dist_center < dx || !front_clear)
+        if (world.center.d < dx || !world.front_clear)
         {
             //cout << "Reached max distance" << endl;
             text = "Reached max distance";
             log(text);
             vx = 0;
             state = SCAN_FOR_EXIT;
-            start_angle = angle;
+            start_angle = world.angle;
             theta = start_angle + (2*M_PI-4);
             if (theta > M_PI)
                 theta -= 2*M_PI;
@@ -465,15 +463,15 @@ int Robot::plan()
         //cout << "Corridor at: " << corridor_center << endl;
         text = "Corridor at: " + to_string(corridor_center);
         log(text);
-        if (corridor_center-center > 5)
-            vtheta = min((corridor_center-center)/35.0,double(maxRot));
-        else if (corridor_center-center < -5)
-            vtheta = max((corridor_center-center)/35.0,double(-maxRot));
+        if (corridor_center-world.center.i > 5)
+            vtheta = min((corridor_center-world.center.i)/35.0,double(maxRot));
+        else if (corridor_center-world.center.i < -5)
+            vtheta = max((corridor_center-world.center.i)/35.0,double(-maxRot));
         else
         {
             start_angle = corridor_center;
-            vy = sin((start_angle-center)*ang_inc)*maxTrans;
-            vx = cos((start_angle-center)*ang_inc)*maxTrans;
+            vy = sin((start_angle-world.center.i)*ang_inc)*maxTrans;
+            vx = cos((start_angle-world.center.i)*ang_inc)*maxTrans;
             vtheta = 0;
             state = DRIVE_TO_EXIT;
         }
@@ -489,8 +487,8 @@ int Robot::plan()
             break;
         }
         //cout << left_clear << front_clear << right_clear <<" Corridor center distance: " << corridor_center_dist << " at " << corridor_center << endl;
-        text = to_string(left_clear) + to_string(front_clear) + to_string(right_clear) +" Corridor center distance: " + to_string(corridor_center_dist) + " at " + to_string(corridor_center);
-        if ((dist_left < 2*min_dist_from_wall && dist_right < 2*min_dist_from_wall))
+        text = to_string(world.left_clear) + to_string(world.front_clear) + to_string(world.right_clear) +" Corridor center distance: " + to_string(corridor_center_dist) + " at " + to_string(corridor_center);
+        if ((world.left.d < 2*min_dist_from_wall && world.right.d < 2*min_dist_from_wall))
         {
             //cout << "Arrived at corridor" << endl;
             text = "Arrived at corridor";
@@ -499,10 +497,10 @@ int Robot::plan()
             state = FOLLOW_CORRIDOR;
             break;
         }
-        if (front_clear)
+        if (world.front_clear)
         {
             vx = maxTrans;
-            if (corridor_center-center > 2)
+            if (corridor_center-world.center.i > 2)
             {
                 if (vtheta < 0)
                     vtheta = 0;
@@ -510,7 +508,7 @@ int Robot::plan()
                 if (vtheta > maxRot)
                     vtheta = maxRot;
             }
-            else if (corridor_center-center < -2)
+            else if (corridor_center-world.center.i < -2)
             {
                 if (vtheta > 0)
                     vtheta = 0;
@@ -524,7 +522,7 @@ int Robot::plan()
         else
         {
             vx = 0.2;
-            if (corridor_center-center > 2)  //Changed from max_dist_front_dir to corridor_center
+            if (corridor_center-world.center.i > 2)  //Changed from max_dist_front_dir to corridor_center
             {
                 if (vtheta < 0)
                     vtheta = 0;
@@ -532,7 +530,7 @@ int Robot::plan()
                 if (vtheta > maxRot/2)
                     vtheta = maxRot/2;
             }
-            else if (corridor_center-center < -2)    //Changed from max_dist_front_dir to corridor_center
+            else if (corridor_center-world.center.i < -2)    //Changed from max_dist_front_dir to corridor_center
             {
                 if (vtheta > 0)
                     vtheta = 0;
@@ -543,7 +541,7 @@ int Robot::plan()
             else
                 vtheta = 0;
         }
-        if (!left_clear)
+        if (!world.left_clear)
         {
             if (vy > 0)
                 vy = 0;
@@ -551,7 +549,7 @@ int Robot::plan()
             if (vy < -maxTrans)
                 vy = -maxTrans;
         }
-        if (!right_clear)
+        if (!world.right_clear)
         {
             if (vy < 0)
                 vy = 0;
@@ -559,33 +557,33 @@ int Robot::plan()
             if (vy > maxTrans)
                 vy = maxTrans;
         }
-        if (left_clear && right_clear)
+        if (world.left_clear && world.right_clear)
             vy = 0;
         break;
 
     case FIND_WALL:
-        start_angle = min_dist_dir;
-        vy = sin((min_dist_dir-center)*ang_inc)*maxTrans;
-        vx = cos((min_dist_dir-center)*ang_inc)*maxTrans;
+        start_angle = world.nearest.i;
+        vy = sin((world.nearest.i-world.center.i)*ang_inc)*maxTrans;
+        vx = cos((world.nearest.i-world.center.i)*ang_inc)*maxTrans;
 cout << vx << " " << vy << endl;
         vtheta = 0;
         state = GO_TO_WALL;
-        cout << "Minimum Distance: " << min_dist << "\nFound at index: " << min_dist_dir << endl;
+        cout << "Minimum Distance: " << world.nearest.d << "\nFound at index: " << world.nearest.i << endl;
         break;
 
     case GO_TO_WALL:
 //        cout << "min_dist: " << min_dist << " at start_angle: " << scan.ranges[start_angle] << endl;
 //	cout << vx << " " << vy << endl;
-        vy = sin((start_angle-center)*ang_inc)*maxTrans;
-        vx = cos((start_angle-center)*ang_inc)*maxTrans;
+        vy = sin((start_angle-world.center.i)*ang_inc)*maxTrans;
+        vx = cos((start_angle-world.center.i)*ang_inc)*maxTrans;
         cout << vx << " " << vy << endl;
-        if (min_dist - min_dist_from_wall < dist_compare_tol)
+        if (world.nearest.d- min_dist_from_wall < dist_compare_tol)
         {
 //            vx = 0;
 //            vy = 0;
 //            vtheta = 0;
             state = ALIGN_TO_WALL;
-            if (min_dist_dir < center)
+            if (world.nearest.i < world.center.i)
                 wall_side = RIGHT;
             else
                 wall_side = LEFT;
@@ -599,7 +597,7 @@ cout << vx << " " << vy << endl;
             double right_av = 0;
             for (int i = 0; i < 20; ++i)
             {
-                right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i*ang_inc));
+                right_av += scan.ranges[world.right.i+i] - (scan.ranges[world.right.i]/cos(i*ang_inc));
             }
             right_av /= 20;
             cout << "Right Average: " << right_av << endl;
@@ -618,7 +616,7 @@ cout << vx << " " << vy << endl;
             double left_av = 0;
             for (int i = 0; i < 20; ++i)
             {
-                left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i*ang_inc));
+                left_av += scan.ranges[world.left.i-i] - (scan.ranges[world.left.i]/cos(i*ang_inc));
             }
             left_av /= 20;
             cout << "Left Average: " << left_av << endl;
@@ -643,25 +641,25 @@ cout << vx << " " << vy << endl;
             for (int i = 0; i < 50; ++i)
             {
 //                cout << scan.ranges[right+i] << " " << dist_right*cos(i*ang_inc) << endl;
-                if (scan.ranges[right+i] - dist_right*cos(i*ang_inc) > 20*dist_compare_tol)
+                if (scan.ranges[world.right.i+i] - world.right.d*cos(i*ang_inc) > 20*dist_compare_tol)
                 {
                     flag = true;
                     break;
                 }
             }
-            if (flag && dist_right - min_dist_from_wall < 2*dist_compare_tol)
+            if (flag && world.right.d - min_dist_from_wall < 2*dist_compare_tol)
             {
                 state = ENTER_EXIT_CORRIDOR;
                 break;
             }
             // check for deviation
-            vy = min(max(float(min_dist_from_wall-min_dist),-maxTrans),maxTrans);
+            vy = min(max(float(min_dist_from_wall-world.nearest.d),-maxTrans),maxTrans);
             int count = 0;
             for (int i = 0; i < 20; ++i)
             {
-                if (scan.ranges[right+i] - (min_dist_from_wall/cos(i)) > dist_compare_tol)
+                if (scan.ranges[world.right.i+i] - (min_dist_from_wall/cos(i)) > dist_compare_tol)
                     ++count;
-                else if (scan.ranges[right+i] - (min_dist_from_wall/cos(i)) < -dist_compare_tol)
+                else if (scan.ranges[world.right.i+i] - (min_dist_from_wall/cos(i)) < -dist_compare_tol)
                     --count;
             }
             if (count > 1)
@@ -671,12 +669,12 @@ cout << vx << " " << vy << endl;
             else
                 vtheta = 0;
             // check for corner
-            for (int i = center-100; i < center; ++i)
+            for (int i = world.center.i-100; i < world.center.i; ++i)
             {
-                if (scan.ranges[i] < (min_dist_from_wall)/cos((i-center)*ang_inc) && scan.ranges[i] > 0.01)
+                if (scan.ranges[i] < (min_dist_from_wall)/cos((i-world.center.i)*ang_inc) && scan.ranges[i] > 0.01)
                 {
                     state = CORNER;
-                    start_angle = angle;
+                    start_angle = world.angle;
                     break;
                 }
             }
@@ -687,25 +685,25 @@ cout << vx << " " << vy << endl;
             for (int i = 0; i < 50; ++i)
             {
 //                cout << scan.ranges[left-i] << " " << dist_left*cos(i*ang_inc) << endl;
-                if (scan.ranges[left-i] - dist_left*cos(i*ang_inc) > 5*dist_compare_tol)
+                if (scan.ranges[world.left.i-i] - world.left.d*cos(i*ang_inc) > 5*dist_compare_tol)
                 {
                     flag = true;
                     break;
                 }
             }
-            cout << scan.ranges[left+50] - min_dist_from_wall/cos(50*ang_inc) << endl;
-            if (flag && fabs(scan.ranges[left+50] - min_dist_from_wall/cos(50*ang_inc)) < 2*dist_compare_tol)
+            cout << scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc) << endl;
+            if (flag && fabs(scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc)) < 2*dist_compare_tol)
             {
                 state = ENTER_EXIT_CORRIDOR;
                 break;
             }
-            vy = max(min(float(min_dist-min_dist_from_wall),maxTrans),-maxTrans);
+            vy = max(min(float(world.nearest.i-min_dist_from_wall),maxTrans),-maxTrans);
             int count = 0;
             for (int i = 0; i < 20; ++i)
             {
-                if (scan.ranges[left-i] - (min_dist_from_wall/cos(i)) > dist_compare_tol)
+                if (scan.ranges[world.left.i-i] - (min_dist_from_wall/cos(i)) > dist_compare_tol)
                     ++count;
-                else if (scan.ranges[left-i] - (min_dist_from_wall/cos(i)) < -dist_compare_tol)
+                else if (scan.ranges[world.left.i-i] - (min_dist_from_wall/cos(i)) < -dist_compare_tol)
                     --count;
             }
             if (count > 1)
@@ -714,12 +712,12 @@ cout << vx << " " << vy << endl;
                 vtheta = -0.1;
             else
                 vtheta = 0;
-            for (int i = center; i < center+100; ++i)
+            for (int i = world.center.i; i < world.center.i+100; ++i)
             {
-                if (scan.ranges[i] < (min_dist_from_wall)/cos((i-center)*ang_inc) && scan.ranges[i] > 0.01)
+                if (scan.ranges[i] < (min_dist_from_wall)/cos((i-world.center.i)*ang_inc) && scan.ranges[i] > 0.01)
                 {
                     state = CORNER;
-                    start_angle = angle;
+                    start_angle = world.angle;
                     break;
                 }
             }
@@ -734,7 +732,7 @@ cout << vx << " " << vy << endl;
             double end_angle = start_angle+(M_PI/2);
             if (end_angle > M_PI)
                 end_angle -= 2*M_PI;
-            if (fabs(angle-end_angle) > angle_compare_tol)
+            if (fabs(world.angle-end_angle) > angle_compare_tol)
                vtheta = maxRot;
             else
             {
@@ -749,7 +747,7 @@ cout << vx << " " << vy << endl;
             double end_angle = start_angle-(M_PI/2);
             if (end_angle < -M_PI)
                 end_angle += 2*M_PI;
-            if (fabs(angle-end_angle) > angle_compare_tol)
+            if (fabs(world.angle-end_angle) > angle_compare_tol)
                vtheta = -maxRot;
             else
             {
@@ -766,7 +764,7 @@ cout << vx << " " << vy << endl;
         vy = 0;
         if (wall_side == RIGHT)
         {
-            if (dist_left < 1.5*min_dist_from_wall || dist_right < min_dist_from_wall-0.1)
+            if (world.left.d < 1.5*min_dist_from_wall || world.right.d < min_dist_from_wall-0.1)
             {
                 vtheta = 0;
                 state = FOLLOW_CORRIDOR;
@@ -776,7 +774,7 @@ cout << vx << " " << vy << endl;
         }
         else
         {
-            if (dist_right < 1.5*min_dist_from_wall || dist_left < min_dist_from_wall-0.1)
+            if (world.right.d < 1.5*min_dist_from_wall || world.left.d < min_dist_from_wall-0.1)
             {
                 vtheta = 0;
                 state = FOLLOW_CORRIDOR;
@@ -788,17 +786,17 @@ cout << vx << " " << vy << endl;
 
     case FOLLOW_CORRIDOR:
         vx = maxTrans;
-        cout << left_clear << right_clear;
-        if (left_clear && right_clear)
+        cout << world.left_clear << world.right_clear;
+        if (world.left_clear && world.right_clear)
                 //|| dist_center < min_dist_from_wall)
         {
             //cout << dist_left << " " <<  dist_right << " " <<  dist_center << endl;
-            text = to_string(dist_left) + " " + to_string(dist_right) + " " +  to_string(dist_center);
+            text = to_string(world.left.d) + " " + to_string(world.right.d) + " " +  to_string(world.center.d);
             log(text);
             state = STOP;
             break;
         }
-        else if (scan.ranges[left-50] > 2*min_dist_from_wall && scan.ranges[right+50] > 2*min_dist_from_wall)
+        else if (scan.ranges[world.left.i-50] > 2*min_dist_from_wall && scan.ranges[world.right.i+50] > 2*min_dist_from_wall)
         {
             state = SCAN_FOR_EXIT;
             break;
@@ -809,8 +807,8 @@ cout << vx << " " << vy << endl;
             double left_av = 0;
             for (int i = 0; i < 40; ++i)
             {
-                right_av += scan.ranges[right+i] - (scan.ranges[right]/cos(i*ang_inc));
-                left_av += scan.ranges[left-i] - (scan.ranges[left]/cos(i*ang_inc));
+                right_av += scan.ranges[world.right.i+i] - (scan.ranges[world.right.i]/cos(i*ang_inc));
+                left_av += scan.ranges[world.left.i-i] - (scan.ranges[world.left.i]/cos(i*ang_inc));
             }
             right_av /= 20;
             left_av /= 20;
@@ -838,7 +836,7 @@ cout << vx << " " << vy << endl;
             else
                 vtheta = 0;
         }
-        vy = min(max(float(dist_left-dist_right),-maxTrans/2),maxTrans/2);
+        vy = min(max(float(world.left.d-world.right.d),-maxTrans/2),maxTrans/2);
         break;
 
     case STOP:
@@ -1011,7 +1009,7 @@ void Robot::printState()
 }
 
 
-void Robot::getMaxMinDist()
+/*void Robot::getMaxMinDist()
 {
     max_dist = scan.ranges[0];
     max_dist_front = scan.ranges[center];
@@ -1058,7 +1056,7 @@ void Robot::getMaxMinDist()
             }
         }
     }
-}
+}*/
 
 bool Robot::computeTrajectoryToExit()
 {
