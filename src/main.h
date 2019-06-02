@@ -17,6 +17,7 @@
 
 #define LEFT    1
 #define RIGHT   2
+#define log_flag 3
 
 using namespace cv;
 using namespace std;
@@ -59,7 +60,6 @@ string to_string(const T& n)
 }
 
 string text;
-string comma(",");
 
 struct robot
 {
@@ -107,7 +107,7 @@ struct robot
     double corridor_center_dist;
     int found_corridor;
     int scan_count;
-    static const int log_flag = 3;
+    vector<int> cabinet_number;
 
     //Mapping Variables
     Mat frame;
@@ -261,8 +261,8 @@ int robot::map()
             ++n_corners;
         }
     }
-    text =  "Number of corners: " + to_string(n_corners);
-    log(text);
+    //text =  "Number of corners: " + to_string(n_corners);
+    log("Number of corners: " + to_string(n_corners););
 //    cout << "Number of corners: " << n_corners << endl;
     if (n_corners > 0)
     {
@@ -390,15 +390,25 @@ int robot::plan()
     sys_state prevState = state;
     switch(state)
     {
+     case ENTER_CABINET_ORDER:
+        int myint;
+        cout << "Please enter the order of the cabinets (enter 1000 to end):\n";
+        do {
+    		cin >> myint;
+    		cabinet_number.push_back (myint);
+        } while (myint!=1000);
+    	cabinet_number.pop_back();
+        cout << int(cabinet_number.size()) << " cabinets will be reached.\n";
+	state = STARTUP;
+        break;
+
     case STARTUP:
         state = SCAN_FOR_EXIT;
         start_angle = angle;
         theta = start_angle + (2*M_PI-4);
         if (theta > M_PI)
             theta -= 2*M_PI;
-        text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);    
-        log(text);
-        //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
+        log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta););
         break;
 
     case SCAN_FOR_EXIT:
@@ -407,8 +417,7 @@ int robot::plan()
         if (found_corridor == 10)
         {
             start_angle = corridor_center;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             //cout << "Found exit at: " << corridor_center << endl;
             state = FACE_EXIT;
             break;
@@ -424,11 +433,9 @@ int robot::plan()
                 state = MOVE_TO_MAX;
             vtheta = 0;
             dx = dist_center/3;
-            text =  "Did not find exit in this scan. Moving forward by: " + to_string(dx); 
-            log(text);
+            log("Did not find exit in this scan. Moving forward by: " + to_string(dx));
             //cout << "Did not find exit in this scan. Moving forward by: " << dx << endl;
-            text = "Min at index: " + to_string(min_dist_dir);
-            log(text);
+            log("Min at index: " + to_string(min_dist_dir));
             //cout << "Min at index: " << min_dist_dir << endl;
         }
         break;
@@ -436,14 +443,12 @@ int robot::plan()
     case MOVE_TO_MAX:
         vtheta = 0;
         vx = maxTrans;
-        text = "dx: " + to_string(dx) + " dist_center: " + to_string(dist_center) + " Front clear: " + to_string(front_clear);
-        log(text);
+        log("dx: " + to_string(dx) + " dist_center: " + to_string(dist_center) + " Front clear: " + to_string(front_clear));
         //cout << "dx: " << dx << " dist_center: " << dist_center << " Front clear: " << front_clear << endl;
         if (dist_center < dx || !front_clear)
         {
             //cout << "Reached max distance" << endl;
-            text = "Reached max distance";
-            log(text);
+            log("Reached max distance");
             vx = 0;
             state = SCAN_FOR_EXIT;
             start_angle = angle;
@@ -451,14 +456,12 @@ int robot::plan()
             if (theta > M_PI)
                 theta -= 2*M_PI;
             //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
-            text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);
-            log(text);
+            log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta));
         }
         if (found_corridor == 10)
         {
             //cout << "Found exit at: " << corridor_center << endl;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             start_angle = corridor_center;
             state = FACE_EXIT;
         }
@@ -468,14 +471,12 @@ int robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
         //cout << "Corridor at: " << corridor_center << endl;
-        text = "Corridor at: " + to_string(corridor_center);
-        log(text);
+        log("Corridor at: " + to_string(corridor_center));
         if (corridor_center-center > 5)
             vtheta = min((corridor_center-center)/35.0,double(maxRot));
         else if (corridor_center-center < -5)
@@ -494,18 +495,16 @@ int robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
         //cout << left_clear << front_clear << right_clear <<" Corridor center distance: " << corridor_center_dist << " at " << corridor_center << endl;
-        text = to_string(left_clear) + to_string(front_clear) + to_string(right_clear) +" Corridor center distance: " + to_string(corridor_center_dist) + " at " + to_string(corridor_center);
+        log(to_string(left_clear) + to_string(front_clear) + to_string(right_clear) +" Corridor center distance: " + to_string(corridor_center_dist) + " at " + to_string(corridor_center));
         if ((dist_left < 2*min_dist_from_wall && dist_right < 2*min_dist_from_wall))
         {
             //cout << "Arrived at corridor" << endl;
-            text = "Arrived at corridor";
-            log(text);
+            log("Arrived at corridor");
             vx = 0;
             state = FOLLOW_CORRIDOR;
             break;
@@ -581,7 +580,7 @@ int robot::plan()
 cout << vx << " " << vy << endl;
         vtheta = 0;
         state = GO_TO_WALL;
-        cout << "Minimum Distance: " << min_dist << "\nFound at index: " << min_dist_dir << endl;
+        log("Minimum Distance: "+ to_string(min_dist)+"\nFound at index: "+to_string(min_dist_dir));
         break;
 
     case GO_TO_WALL:
@@ -804,8 +803,7 @@ cout << vx << " " << vy << endl;
                 //|| dist_center < min_dist_from_wall)
         {
             //cout << dist_left << " " <<  dist_right << " " <<  dist_center << endl;
-            text = to_string(dist_left) + " " + to_string(dist_right) + " " +  to_string(dist_center);
-            log(text);
+            log(to_string(dist_left) + " " + to_string(dist_right) + " " +  to_string(dist_center));
             state = STOP;
             break;
         }
@@ -825,8 +823,7 @@ cout << vx << " " << vy << endl;
             }
             right_av /= 20;
             left_av /= 20;
-            text = to_string(left_av) + " " + to_string(right_a);
-            log(text);
+            log(to_string(left_av) + " " + to_string(right_a));
             //cout << left_av << " " << right_av << endl;
             if (right_av > dist_compare_tol && left_av < -dist_compare_tol)
             {
@@ -941,49 +938,40 @@ int robot::actuate()
 
 void robot::printState()
 {
-    text = "Pico State: ";
-    log(text);
+    log("Pico State: ");
     //cout << "Pico State: ";
     switch(state)
     {
     case STARTUP:
-        text = "STARTUP";
-        log(text);
+        log("STARTUP");
         //cout << "STARTUP" << endl;
         break;
     case SCAN_FOR_EXIT:
-        text = "SCAN_FOR_EXIT";
-        log(text);
+        log("SCAN_FOR_EXIT");
         //cout << "SCAN_FOR_EXIT" << endl;
         break;
     case FACE_EXIT:
-        text = "FACE_EXIT";
-        log(text);
+        log("FACE_EXIT");
         //cout << "FACE_EXIT" << endl;
         break;
     case EXIT_UNDETECTABLE:
-        text = "EXIT_UNDETECTABLE";
-        log(text);
+        log("EXIT_UNDETECTABLE");
         //cout << "EXIT_UNDETECTABLE" << endl;
         break;
     case ORIENT_TO_EXIT_WALL:
-        text = "ORIENT_TO_EXIT_WALL";
-        log(text);
+        log("ORIENT_TO_EXIT_WALL");
         //cout << "ORIENT_TO_EXIT_WALL" << endl;
         break;
     case DRIVE_TO_EXIT:
-        text = "DRIVE_TO_EXIT";
-        log(text);
+        log("DRIVE_TO_EXIT");
         //cout << "DRIVE_TO_EXIT" << endl;
         break;
     case EXIT_CORRIDOR_FOLLOW:
-        text = "EXIT_CORRIDOR_FOLLOW";
-        log(text);
+        log("EXIT_CORRIDOR_FOLLOW");
         //cout << "EXIT_CORRIDOR_FOLLOW" << endl;
         break;
     case STOP:
-        text = "STOP";
-        log(text);
+        log("STOP");
         //cout << "STOP" << endl;
         break;
     case FIND_WALL:
@@ -1002,18 +990,15 @@ void robot::printState()
         cout << "CORNER" << endl;
         break;
     case ENTER_EXIT_CORRIDOR:
-        text = "ENTER_EXIT_CORRIDOR";
-        log(text);
+        log("ENTER_EXIT_CORRIDOR");
         //cout << "ENTER_EXIT_CORRIDOR" << endl;
         break;
     case FOLLOW_CORRIDOR:
-        text = "FOLLOW_CORRIDOR";
-        log(text);
+        log("FOLLOW_CORRIDOR");
         //cout << "FOLLOW_CORRIDOR" << endl;
         break;
     case MOVE_TO_MAX:
-        text = "MOVE_TO_MAX";
-        log(text);
+        log("MOVE_TO_MAX");
         //cout << "MOVE_TO_MAX" << endl;
         break;
     }
