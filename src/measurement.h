@@ -157,4 +157,3 @@ void Measurement::getMaxMinDist()
 }
 
 #endif // MEASUREMENT
-
