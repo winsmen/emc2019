@@ -3,47 +3,81 @@
 
 #include <emc/io.h>
 
-class Measurement
-{
-    emc::IO io;
-    emc::LaserData scan;
-    emc::OdometryData odom;
-    struct LRFpoint;
-    double ang_inc;
-    int center_index;
-    int right_index;
-    int left_index;
-    LRFpoint center,right,left;
-public:
-    Measurement(emc::IO &i, emc::LaserData &s, emc::OdometryData &o);
-    int measure();
-};
 
-struct Measurement::LRFpoint
+struct LRFpoint
 {
     double d;   //Distance
-    double a;   //Angle
+//    double a;   //Angle
     int i;      //Index
     LRFpoint(double d, int i)
     {
         LRFpoint::d = d;
         LRFpoint::i = i;
-        a = (i-center_index)*ang_inc;
+//        a = (i-center)*ang_inc;
     }
     LRFpoint()
     {
         d = -1;
-        a = -1;
+//        a = -1;
         i = -1;
+    }
+    void assignPoint(double d, int i)
+    {
+        LRFpoint::d = d;
+        LRFpoint::i = i;
+//        a = (i-center)*ang_inc;
     }
 };
 
-Measurement::Measurement(emc::IO &i, emc::LaserData &s, emc::OdometryData &o)
+
+class Measurement
 {
-    io = i;
-    scan = s;
-    odom = o;
+    // Operational variables
+    emc::IO io;
+    emc::LaserData scan;
+    emc::OdometryData odom;
+    double ang_inc;
+    int scan_span;
+    int side_range;
+    int padding;
+    int av_range;
+    int min_range;
+    float min_permit_dist;
+
+    //Measured variables
+    LRFpoint center, right, left;
+    double angle;
+    LRFpoint farthest, nearest;
+    bool front_clear,right_clear,left_clear;
+
+    // Private Member Functions
+    void getMaxMinDist();
+
+public:
+    Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom,
+                int side_range, int padding, int av_range, int min_range, float min_permit_dist);
+    int measure();
+};
+
+
+Measurement::Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom,
+                         int side_range, int padding, int av_range, int min_range, float min_permit_dist)
+    : io(io), scan(scan), odom(odom),
+      side_range(side_range), padding(padding), av_range(av_range), min_range(min_range), min_permit_dist(min_permit_dist)
+{
+    int max_iter = 20;
+    while(!io.readLaserData(scan) || !io.readOdometryData(odom) && max_iter > 0)
+        --max_iter;
+    ang_inc = scan.angle_increment;
+    scan_span = scan.ranges.size();
+    int center_index = (scan_span-1)/2;
+    int right_index = center_index - (M_PI/2)/ang_inc;
+    int left_index = center_index + (M_PI/2)/ang_inc;
+    center.assignPoint(scan.ranges[center_index],center_index);
+    right.assignPoint(scan.ranges[right_index],right_index);
+    left.assignPoint(scan.ranges[left_index],left_index);
 }
+
 
 int Measurement::measure()
 {
@@ -55,9 +89,9 @@ int Measurement::measure()
     int ret = 1;
     if (io.readLaserData(scan))
     {
-        dist_center = scan.ranges[center];
-        dist_right = scan.ranges[right];
-        dist_left = scan.ranges[left];
+        center.d = scan.ranges[center.i];
+        right.d = scan.ranges[right.i];
+        left.d = scan.ranges[left.i];
         getMaxMinDist();
     }
     else
@@ -69,5 +103,57 @@ int Measurement::measure()
     return ret;
 }
 
-#endif // MEASUREMENT
 
+void Measurement::getMaxMinDist()
+{
+    farthest.assignPoint(scan.ranges[0],scan.range_min);
+    nearest.assignPoint(scan.ranges[0],scan.range_max);
+//    max_dist = scan.ranges[0];
+//    max_dist_front = scan.ranges[center];
+//    min_dist = scan.range_max;
+//    max_dist_dir = min_dist_dir = 0;
+    front_clear = true;
+    right_clear = true;
+    left_clear = true;
+    for (int i = padding; i < scan_span-padding; ++i)
+    {
+        if (scan.ranges[i] > farthest.d)
+        {
+            farthest.assignPoint(scan.ranges[i],i);
+//            max_dist = scan.ranges[i];
+//            max_dist_dir = i;
+        }
+        else if (scan.ranges[i] < nearest.d && scan.ranges[i] > min_range)
+        {
+            nearest.assignPoint(scan.ranges[i],i);
+//            min_dist = scan.ranges[i];
+//            min_dist_dir = i;
+        }
+        if (abs(i - right.i) < side_range)
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+                right_clear = false;
+        }
+        else if (abs(i - left.i) < side_range)
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            {
+                left_clear = false;
+            }
+        }
+        else
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            {
+                front_clear = false;
+            }
+//            if (scan.ranges[i] > max_dist_front)
+//            {
+//                max_dist_front = scan.ranges[i];
+//                max_dist_front_dir = i;
+//            }
+        }
+    }
+}
+
+#endif // MEASUREMENT
