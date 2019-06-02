@@ -60,20 +60,6 @@ public:
 };
 
 
-/*
-    ang_inc = scan.angle_increment;
-    scan_span = scan.ranges.size();
-    center = (scan_span-1)/2;
-    right = center - (M_PI/2)/ang_inc;
-    left = center + (M_PI/2)/ang_inc;
-    found_corridor = 0;
-    scan_count = 0;
-    outfile.open("../log.txt", ios::out | ios::trunc);
-    io.speak("Pico ready");
-    cout << "Pico State: FOLLOW_CORRIDOR" << endl;
-    */
-
-
 Measurement::Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom,
                          int side_range, int padding, int av_range, int min_range, float min_permit_dist)
     : io(io), scan(scan), odom(odom),

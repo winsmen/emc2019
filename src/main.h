@@ -14,6 +14,8 @@
 #include <string.h>
 #include <fstream>
 
+#include "measurement.h"
+
 #define LEFT    1
 #define RIGHT   2
 
@@ -49,8 +51,9 @@ class Point_
 };
 
 
-struct robot
+class robot
 {
+public:
     // Robot Variables
     emc::IO io;
     emc::LaserData scan;
@@ -95,6 +98,8 @@ struct robot
     double corridor_center_dist;
     int found_corridor;
     int scan_count;
+
+    Measurement *sense;
 
     //Mapping Variables
     Mat frame;
@@ -183,6 +188,7 @@ robot::robot(int rate, float maxTrans, float maxRot, sys_state state=STARTUP)
     outfile.open("../log.txt", ios::out | ios::trunc);
     io.speak("Pico ready");
     cout << "Pico State: FOLLOW_CORRIDOR" << endl;
+    sense = new Measurement(io,scan,odom,20,padding,av_range,0.1,min_dist_from_wall);
 }
 
 robot::~robot()
@@ -487,7 +493,7 @@ int robot::plan()
         else
         {
             vx = 0.2;
-            if (max_dist_front_dir-center > 2)
+            if (corridor_center-center > 2)  //Changed from max_dist_front_dir to corridor_center
             {
                 if (vtheta < 0)
                     vtheta = 0;
@@ -495,7 +501,7 @@ int robot::plan()
                 if (vtheta > maxRot/2)
                     vtheta = maxRot/2;
             }
-            else if (max_dist_front_dir-center < -2)
+            else if (corridor_center-center < -2)    //Changed from max_dist_front_dir to corridor_center
             {
                 if (vtheta > 0)
                     vtheta = 0;

@@ -1,7 +1,7 @@
 #include "main.h"
 
-#define PLAN_ENABLED    1
-#define ACTUATE_ENABLED 1
+#define PLAN_ENABLED    true
+#define ACTUATE_ENABLED true
 
 int main()
 {
@@ -13,16 +13,16 @@ int main()
 
     while(pico.io.ok())
     {
-        if (pico.measure() != 1)
+        if (pico.sense->measure() != 1)
         {
             pico.r.sleep();
             continue;
         }
         pico.map();
-#if PLAN_ENABLED == 1
+#if PLAN_ENABLED
         pico.plan();
 #endif
-#if ACTUATE_ENABLED == 1
+#if PLAN_ENABLED && ACTUATE_ENABLED
         pico.actuate();
 #endif
 
