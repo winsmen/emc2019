@@ -13,7 +13,7 @@ int main()
 
     while(pico.io.ok())
     {
-        if (pico.measure() != 1) //pico.sense->measure() != 1)
+        if (pico.sense->measure() != 1)
         {
             pico.r.sleep();
             continue;
