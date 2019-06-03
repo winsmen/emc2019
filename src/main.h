@@ -217,14 +217,14 @@ int Robot::measure()
     if (io.readLaserData(scan))
     {
         world.center.d = scan.ranges[world.center.i];
-        world.right,d = scan.ranges[world.right.i];
+        world.right.d = scan.ranges[world.right.i];
         world.left.d = scan.ranges[world.left.d];
         getMaxMinDist();
     }
     else
         ret = 0;
     if (io.readOdometryData(odom))
-        angle = odom.a;
+        world.angle = odom.a;
     else
         ret -= 2;
     return ret;
@@ -1022,25 +1022,25 @@ void Robot::getMaxMinDist()
         {
             world.farthest.assignPoint(scan.ranges[i],i);
         }
-        else if (scan.ranges[i] < world.nearest.d && scan.ranges[i] > min_range)
+        else if (scan.ranges[i] < world.nearest.d && scan.ranges[i] > specs.min_range)
         {
             world.nearest.assignPoint(scan.ranges[i],i);
         }
-        if (abs(i - world.right.i) < side_range)
+        if (abs(i - world.right.i) < specs.side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
                 world.right_clear = false;
         }
-        else if (abs(i - world.left.i) < side_range)
+        else if (abs(i - world.left.i) < specs.side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
             {
                 world.left_clear = false;
             }
         }
-        else if (abs(i - world.center.i) < side_range)
+        else if (abs(i - world.center.i) < specs.side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
             {
                 world.front_clear = false;
             }

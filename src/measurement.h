@@ -32,14 +32,14 @@ class Measurement
     World world;
 
     // Private Member Functions
-    void getMaxMinDist(emc::IO &scan);
+    void getMaxMinDist();
     void log(string text);
 
 public:
     Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom, World &world,
                 const Performance &specs);
     ~Measurement();
-    int measure(emc::IO &scan);
+    int measure();
 };
 
 
@@ -73,7 +73,7 @@ Measurement::~Measurement()
 }
 
 
-int Measurement::measure(emc::IO &scan)
+int Measurement::measure()
 {
     /* Return values:
      * 1  - Success
@@ -101,7 +101,7 @@ int Measurement::measure(emc::IO &scan)
 }
 
 
-void Measurement::getMaxMinDist(emc::IO &scan)
+void Measurement::getMaxMinDist()
 {
     world.farthest.assignPoint(scan.ranges[0],scan.range_min);
     world.nearest.assignPoint(scan.ranges[0],scan.range_max);
