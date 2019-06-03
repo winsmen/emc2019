@@ -11,10 +11,13 @@ using namespace std;
 
 struct LRFpoint;
 struct World;
+struct Exit;
 struct Preformance;
 template<typename T>
 string to_string(const T &n);
 void polar2cart(double r, double theta, double &x, double &y, double x_off, double y_off);
+//double distance(LRFpoint p1, LRFpoint p2);
+inline double distance(double x1, double y1, double x2, double y2);
 
 
 struct LRFpoint
@@ -49,9 +52,18 @@ struct World
     double angle;
     LRFpoint farthest, nearest;
     bool front_clear,right_clear,left_clear;
+    vector<Exit> exits;
+    vector<LRFpoint> convexCorners;
+    vector<LRFpoint> concaveCorners;
 
     World();
     ~World();
+};
+
+
+struct Exit
+{
+    LRFpoint leftEdge,rightEdge;
 };
 
 
@@ -111,6 +123,10 @@ void polar2cart(double r,double theta, double &x,double &y, double x_off = 0, do
     y = y_off - r*cos(theta)*80;
 }
 
+inline double distance(double x1, double y1, double x2, double y2)
+{
+    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
+}
 
 #endif // COMMON_RESOURCES_H
 

@@ -44,6 +44,10 @@ Mapping::Mapping(emc::LaserData &scan, emc::OdometryData &odom, World &world, co
 int Mapping::map()
 {
     int mult = 2;
+    world.concaveCorners.clear();
+    world.convexCorners.clear();
+    vector<LRFpoint> tempCorners;
+    // Smoothen LRF readings and detect convex corners
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
         float dist_av = pow((av_range+1),mult)*scan.ranges[i];
@@ -55,17 +59,22 @@ int Mapping::map()
         }
         dist_av /= den;
         distance[i-padding-av_range] = dist_av;
-        if ((dist_av - scan.ranges[i] > corner_compare_tol /*|| fabs(scan.ranges[i]-scan.ranges[i-1]) > 0.01*/)
+        if ((dist_av - scan.ranges[i] > corner_compare_tol)
                 && scan.ranges[i] > 0.1)
         {
-            corner_dist[n_corners] = scan.ranges[i];
-            corner_angle[n_corners] = i;
-            ++n_corners;
+            tempCorners.push_back(LRFpoint(scan.ranges[i],i));
+//            corner_dist[n_corners] = scan.ranges[i];
+//            corner_angle[n_corners] = i;
+//            ++n_corners;
         }
     }
-    text =  "Number of corners: " + to_string(n_corners);
-    log(text);
+    log("Number of corners (raw): " + to_string(world.convexCorners.size()));
 //    cout << "Number of corners: " << n_corners << endl;
+    // Cluster convex corners
+    for (int i = 0; i < tempCorners.size(); ++i)
+    {
+
+    }
     if (n_corners > 0)
     {
 //        cout << "Number of corners: " << n_corners << endl;

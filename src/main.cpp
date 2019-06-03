@@ -31,10 +31,10 @@ int main()
         }
         pico.map();
 #if PLAN_ENABLED
-        //pico.plan();
+        pico.plan();
 #endif
 #if PLAN_ENABLED && ACTUATE_ENABLED
-        //pico.actuate();
+        pico.actuate();
 #endif
 
         //pico.r.sleep();

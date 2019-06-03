@@ -20,6 +20,10 @@
 #define LEFT        1
 #define RIGHT       2
 
+#ifndef LOG_FLAG
+#define LOG_FLAG    3
+#endif
+
 using namespace cv;
 using namespace std;
 
@@ -99,7 +103,6 @@ public:
     double corridor_center_dist;
     int found_corridor;
     int scan_count;
-    static const int log_flag = 3;
 
     //Mapping Variables
     Mat frame;
@@ -158,15 +161,12 @@ void Robot::setState(sys_state s)
 
 void Robot::log(string text)
 {
-    if (log_flag == 1)
-        outfile << text << endl;
-    else if (log_flag == 2)
-        cout << text << endl;
-    else if (log_flag == 3)
-    {
-        outfile << text << endl;
-        cout << text << endl;
-    }
+#if LOG_FLAG == 1 || LOG_FLAG == 3
+    outfile << text << endl;
+#endif
+#if LOG_FLAG == 2 || LOG_FLAG == 3
+    cout << text << endl;
+#endif
 }
 //
 //    outfile.open("laser.csv", ios::out | ios::trunc);
@@ -234,6 +234,7 @@ Robot::~Robot()
 
 int Robot::map()
 {
+    cout << scan.ranges[0] << endl;
     n_corners = 0;
     int mult = 2;
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
