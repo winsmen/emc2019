@@ -1,7 +1,7 @@
 #include "main.h"
 
-#define PLAN_ENABLED        true
-#define ACTUATE_ENABLED     true
+#define PLAN_ENABLED        false
+#define ACTUATE_ENABLED     false
 
 #define MIN_PERMIT_DIST     0.6
 #define DIST_COMPARE_TOL    0.01

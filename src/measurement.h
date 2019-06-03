@@ -7,8 +7,8 @@
 #include <ctime>
 #include "common_resources.h"
 
-#ifndef LOG_FLAG
-#define LOG_FLAG    3
+#ifndef MEASURE_LOG_FLAG
+#define MEASURE_LOG_FLAG    1
 #endif
 
 using namespace std;
@@ -142,10 +142,10 @@ void Measurement::getMaxMinDist()
 
 void Measurement::log(string text)
 {
-#if LOG_FLAG == 1 || LOG_FLAG == 3
+#if MEASURE_LOG_FLAG == 1 || MEASURE_LOG_FLAG == 3
     measure_log << text << endl;
 #endif
-#if LOG_FLAG == 2 || LOG_FLAG == 3
+#if MEASURE_LOG_FLAG == 2 || MEASURE_LOG_FLAG == 3
     cout << text << endl;
 #endif
 }

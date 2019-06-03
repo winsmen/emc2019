@@ -97,8 +97,7 @@ public:
     double distance[1000-2*(padding+av_range)];    //unused
     int wall_side;
     int n_corners;
-    double corner_dist[1000];
-    int corner_angle[1000];
+    vector<LRFpoint> corner;
     int corridor_center;
     double corridor_center_dist;
     int found_corridor;
@@ -234,8 +233,7 @@ Robot::~Robot()
 
 int Robot::map()
 {
-    cout << scan.ranges[0] << endl;
-    n_corners = 0;
+//    cout << scan.ranges[0] << endl;
     int mult = 2;
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
@@ -251,11 +249,10 @@ int Robot::map()
         if ((dist_av - scan.ranges[i] > corner_compare_tol /*|| fabs(scan.ranges[i]-scan.ranges[i-1]) > 0.01*/)
                 && scan.ranges[i] > 0.1)
         {
-            corner_dist[n_corners] = scan.ranges[i];
-            corner_angle[n_corners] = i;
-            ++n_corners;
+            corner.push_back(LRFpoint(scan.ranges[i],i));
         }
     }
+    n_corners = corner.size();
     text =  "Number of corners: " + to_string(n_corners);
     log(text);
 //    cout << "Number of corners: " << n_corners << endl;
@@ -263,10 +260,10 @@ int Robot::map()
     {
 //        cout << "Number of corners: " << n_corners << endl;
 //        cout << "Corner Start: " << corner_angle[0] << " Corner End: " << corner_angle[n_corners-1] << endl;
-        corridor_center = (corner_angle[0]+corner_angle[n_corners-1])/2;
+        corridor_center = (corner[0].i+corner[n_corners-1].i)/2;
 //        cout << corner_dist[0] << " " << corner_dist[n_corners-1] << endl;
-        corridor_center_dist = (corner_dist[0]+corner_dist[n_corners-1])/2;
-        if (fabs((scan.ranges[corner_angle[n_corners-1]] + scan.ranges[corner_angle[0]])/2 - scan.ranges[corridor_center]) < corner_compare_tol)
+        corridor_center_dist = (corner[0].d+corner[n_corners-1].d)/2;
+        if (fabs(corridor_center_dist - scan.ranges[corridor_center]) < corner_compare_tol)
         {
             corridor_center = -1;
             found_corridor -= 1;
@@ -353,7 +350,7 @@ void Robot::displayMap()
         {
             for (int i = 0; i < n_corners; ++i)
             {
-                polar2cart(corner_dist[i],(corner_angle[i]*-ang_inc)+2,x,y,x_c,y_c);
+                polar2cart(corner[i].d,(corner[i].i*-ang_inc)+2,x,y,x_c,y_c);
                 circle(frame,Point(x,y),1,Scalar(255,255,0),1,8);
             }
         }
@@ -361,9 +358,9 @@ void Robot::displayMap()
         {
             polar2cart(corridor_center_dist,(corridor_center*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),3,Scalar(0,255,0),2,8);
-            polar2cart(corner_dist[0],(corner_angle[0]*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart(corner[0].d,(corner[0].i*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
-            polar2cart(corner_dist[n_corners-1],(corner_angle[n_corners-1]*-ang_inc)+2,x,y,x_c,y_c);
+            polar2cart(corner[n_corners-1].d,(corner[n_corners-1].i*-ang_inc)+2,x,y,x_c,y_c);
             circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
         }
     }
