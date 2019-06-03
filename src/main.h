@@ -94,7 +94,7 @@ public:
 //    double angle;
     static const int padding = 15;
     static const int av_range = 20;
-    double distance[1000-2*(padding+av_range)];    //unused
+    vector<double> distance;    //unused
     int wall_side;
     int n_corners;
     vector<LRFpoint> corner;
@@ -122,13 +122,13 @@ public:
     ~Robot();
 
     // Main Functions
-    //int measure();
+int measure();
     int map();
     int plan();
     int actuate();
 
     // Measurement
-    //void getMaxMinDist();
+void getMaxMinDist();
 
     // Mapping
     bool computeTrajectoryToExit();
@@ -206,19 +206,19 @@ Robot::~Robot()
     outfile.close();
 }
 
-/*int Robot::measure()
+int Robot::measure()
 {
     /* Return values:
      * 1  - Success
      * 0  - LRF read failed, Odometer read success
      * -1 - LRF read success, Odometer read failed
-     * -2 - LRF and Odometer read failed*
+     * -2 - LRF and Odometer read failed*/
     int ret = 1;
     if (io.readLaserData(scan))
     {
-        dist_center = scan.ranges[center];
-        dist_right = scan.ranges[right];
-        dist_left = scan.ranges[left];
+        world.center.d = scan.ranges[world.center.i];
+        world.right,d = scan.ranges[world.right.i];
+        world.left.d = scan.ranges[world.left.d];
         getMaxMinDist();
     }
     else
@@ -228,13 +228,15 @@ Robot::~Robot()
     else
         ret -= 2;
     return ret;
-}*/
+}
 
 
 int Robot::map()
 {
 //    cout << scan.ranges[0] << endl;
     int mult = 2;
+	corner.clear();    
+	distance.clear();
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
         float dist_av = pow((av_range+1),mult)*scan.ranges[i];
@@ -245,7 +247,7 @@ int Robot::map()
             den += 2*pow(j,mult);
         }
         dist_av /= den;
-        distance[i-padding-av_range] = dist_av;
+        distance.push_back(dist_av);
         if ((dist_av - scan.ranges[i] > corner_compare_tol /*|| fabs(scan.ranges[i]-scan.ranges[i-1]) > 0.01*/)
                 && scan.ranges[i] > 0.1)
         {
@@ -1006,6 +1008,45 @@ void Robot::printState()
     sleep(1);
 }
 
+
+void Robot::getMaxMinDist()
+{
+    world.farthest.assignPoint(scan.ranges[0],scan.range_min);
+    world.nearest.assignPoint(scan.ranges[0],scan.range_max);
+    world.front_clear = true;
+    world.right_clear = true;
+    world.left_clear = true;
+    for (int i = padding; i < scan_span-padding; ++i)
+    {
+        if (scan.ranges[i] > world.farthest.d)
+        {
+            world.farthest.assignPoint(scan.ranges[i],i);
+        }
+        else if (scan.ranges[i] < world.nearest.d && scan.ranges[i] > min_range)
+        {
+            world.nearest.assignPoint(scan.ranges[i],i);
+        }
+        if (abs(i - world.right.i) < side_range)
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+                world.right_clear = false;
+        }
+        else if (abs(i - world.left.i) < side_range)
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            {
+                world.left_clear = false;
+            }
+        }
+        else if (abs(i - world.center.i) < side_range)
+        {
+            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            {
+                world.front_clear = false;
+            }
+        }
+    }
+}
 
 /*void Robot::getMaxMinDist()
 {

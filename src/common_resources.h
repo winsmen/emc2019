@@ -27,6 +27,7 @@ struct LRFpoint
     int i;      //Index
     LRFpoint(double d, int i)
     {
+//cout << 1 <<endl;
         LRFpoint::d = d;
         LRFpoint::i = i;
 //        a = (i-center)*ang_inc;
@@ -69,12 +70,15 @@ struct Exit
 
 World::World()
 {
+//cout << 1 << endl;
     center.assignPoint(-1,-1);
     right.assignPoint(-1,-1);
     left.assignPoint(-1,-1);
+//cout << 2 << endl;
     angle = -1;
     farthest.assignPoint(-1,-1);
     nearest.assignPoint(-1,-1);
+//cout << 3<< endl;
     front_clear = false;
     right_clear = false;
     left_clear = false;
