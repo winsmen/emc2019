@@ -50,7 +50,6 @@ enum sys_state
 };
 
 string text;
-string comma(",");
 
 
 class Robot
@@ -253,8 +252,7 @@ int Robot::map()
         }
     }
     n_corners = corner.size();
-    text =  "Number of corners: " + to_string(n_corners);
-    log(text);
+    log("Number of corners: " + to_string(n_corners));
 //    cout << "Number of corners: " << n_corners << endl;
     if (n_corners > 0)
     {
@@ -381,8 +379,7 @@ int Robot::plan()
         theta = start_angle + (2*M_PI-4);
         if (theta > M_PI)
             theta -= 2*M_PI;
-        text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);    
-        log(text);
+        log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta));
         //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
         break;
 
@@ -392,14 +389,13 @@ int Robot::plan()
         if (found_corridor == 10)
         {
             start_angle = corridor_center;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             //cout << "Found exit at: " << corridor_center << endl;
             state = FACE_EXIT;
             break;
         }
         // Sweep complete
-        cout << "Current angle: " << world.angle << " Destination Angle: " << theta << endl;
+        log("Current angle: " + to_string(world.angle) + " Destination Angle: " + to_string(theta));
         if (fabs(world.angle - theta) < angle_compare_tol)
         {
             ++scan_count;
@@ -409,11 +405,9 @@ int Robot::plan()
                 state = MOVE_TO_MAX;
             vtheta = 0;
             dx = world.center.d/3;
-            text =  "Did not find exit in this scan. Moving forward by: " + to_string(dx); 
-            log(text);
+            log("Did not find exit in this scan. Moving forward by: " + to_string(dx));
             //cout << "Did not find exit in this scan. Moving forward by: " << dx << endl;
-            text = "Min at index: " + to_string(world.nearest.i);
-            log(text);
+            log("Min at index: " + to_string(world.nearest.i));
             //cout << "Min at index: " << min_dist_dir << endl;
         }
         break;
@@ -421,14 +415,12 @@ int Robot::plan()
     case MOVE_TO_MAX:
         vtheta = 0;
         vx = maxTrans;
-        text = "dx: " + to_string(dx) + " dist_center: " + to_string(world.center.d) + " Front clear: " + to_string(world.front_clear);
-        log(text);
+        log("dx: " + to_string(dx) + " dist_center: " + to_string(world.center.d) + " Front clear: " + to_string(world.front_clear);
         //cout << "dx: " << dx << " dist_center: " << dist_center << " Front clear: " << front_clear << endl;
         if (world.center.d < dx || !world.front_clear)
         {
             //cout << "Reached max distance" << endl;
-            text = "Reached max distance";
-            log(text);
+            log("Reached max distance");
             vx = 0;
             state = SCAN_FOR_EXIT;
             start_angle = world.angle;
@@ -436,14 +428,12 @@ int Robot::plan()
             if (theta > M_PI)
                 theta -= 2*M_PI;
             //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
-            text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);
-            log(text);
+            log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta));
         }
         if (found_corridor == 10)
         {
             //cout << "Found exit at: " << corridor_center << endl;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             start_angle = corridor_center;
             state = FACE_EXIT;
         }
@@ -453,14 +443,12 @@ int Robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
         //cout << "Corridor at: " << corridor_center << endl;
-        text = "Corridor at: " + to_string(corridor_center);
-        log(text);
+        log("Corridor at: " + to_string(corridor_center));
         if (corridor_center-world.center.i > 5)
             vtheta = min((corridor_center-world.center.i)/35.0,double(maxRot));
         else if (corridor_center-world.center.i < -5)
@@ -479,8 +467,7 @@ int Robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
@@ -489,8 +476,7 @@ int Robot::plan()
         if ((world.left.d < 2*min_dist_from_wall && world.right.d < 2*min_dist_from_wall))
         {
             //cout << "Arrived at corridor" << endl;
-            text = "Arrived at corridor";
-            log(text);
+            log("Arrived at corridor");
             vx = 0;
             state = FOLLOW_CORRIDOR;
             break;
@@ -566,7 +552,8 @@ int Robot::plan()
 cout << vx << " " << vy << endl;
         vtheta = 0;
         state = GO_TO_WALL;
-        cout << "Minimum Distance: " << world.nearest.d << "\nFound at index: " << world.nearest.i << endl;
+        //cout << "Minimum Distance: " << world.nearest.d << "\nFound at index: " << world.nearest.i << endl;
+        log("Minimum Distance: " + to_string(world.nearest.d) + "\nFound at index: " + to_string(world.nearest.i));
         break;
 
     case GO_TO_WALL:
@@ -585,7 +572,8 @@ cout << vx << " " << vy << endl;
                 wall_side = RIGHT;
             else
                 wall_side = LEFT;
-            cout << "Arrived at wall on " << ((wall_side == RIGHT)?"Right":"Left") << endl;
+            //cout << "Arrived at wall on " << ((wall_side == RIGHT)?"Right":"Left") << endl;
+            log("Arrived at wall on " + ((wall_side == RIGHT)?"Right":"Left"));
         }
         break;
 
@@ -598,7 +586,8 @@ cout << vx << " " << vy << endl;
                 right_av += scan.ranges[world.right.i+i] - (scan.ranges[world.right.i]/cos(i*ang_inc));
             }
             right_av /= 20;
-            cout << "Right Average: " << right_av << endl;
+            //cout << "Right Average: " << right_av << endl;
+            log('"Right Average: " + to_string(right_av));
             if (right_av > dist_compare_tol)
                 vtheta = -maxRot;
             else if (right_av < -dist_compare_tol)
@@ -617,7 +606,8 @@ cout << vx << " " << vy << endl;
                 left_av += scan.ranges[world.left.i-i] - (scan.ranges[world.left.i]/cos(i*ang_inc));
             }
             left_av /= 20;
-            cout << "Left Average: " << left_av << endl;
+            //cout << "Left Average: " << left_av << endl;
+            log("Left Average: " + to_string(left_av));
             if (left_av < -dist_compare_tol)
                 vtheta = -maxRot;
             else if (left_av > dist_compare_tol)
@@ -689,7 +679,8 @@ cout << vx << " " << vy << endl;
                     break;
                 }
             }
-            cout << scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc) << endl;
+            //cout << scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc) << endl;
+            log(to_string(scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc)));
             if (flag && fabs(scan.ranges[world.left.i+50] - min_dist_from_wall/cos(50*ang_inc)) < 2*dist_compare_tol)
             {
                 state = ENTER_EXIT_CORRIDOR;
@@ -784,7 +775,8 @@ cout << vx << " " << vy << endl;
 
     case FOLLOW_CORRIDOR:
         vx = maxTrans;
-        cout << world.left_clear << world.right_clear;
+        //cout << world.left_clear << world.right_clear;
+        log(to_string(world.left_clear)+to_string(world.right_clear));
         if (world.left_clear && world.right_clear)
                 //|| dist_center < min_dist_from_wall)
         {
