@@ -16,53 +16,57 @@ using namespace std;
 class Measurement
 {
     // Operational variables
-    emc::IO io;
-    emc::LaserData scan;
-    emc::OdometryData odom;
+    emc::IO &io;
+    emc::LaserData &scan;
+    emc::OdometryData &odom;
     double ang_inc;
     int scan_span;
-    const int &side_range;
-    const int &padding;
-    const int &av_range;
-    const int &min_range;
-    const float &min_permit_dist;
+    const int side_range;
+    const int padding;
+    const int av_range;
+    const int min_range;
+    const float min_permit_dist;
     ofstream measure_log;
 
     //Measured variables
-    World world;
+    World &world;
 
     // Private Member Functions
     void getMaxMinDist();
     void log(string text);
 
 public:
-    Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom, World &world,
-                const Performance &specs);
+    Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *odom, World *world,
+                const Performance specs);
     ~Measurement();
     int measure();
 };
 
 
-Measurement::Measurement(emc::IO &io, emc::LaserData &scan, emc::OdometryData &odom, World &world,
-                         const Performance &specs)
-    : io(io), scan(scan), odom(odom), world(world),
+Measurement::Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *odom, World *world,
+                         const Performance specs)
+    : io(*io), scan(*scan), odom(*odom), world(*world),
       side_range(specs.side_range), padding(specs.padding), av_range(specs.av_range),
       min_range(specs.min_range), min_permit_dist(specs.min_permit_dist)
 {
-    int max_iter = 20;
-    while(!io.readLaserData(scan) || !io.readOdometryData(odom) && max_iter > 0)
-        --max_iter;
-    ang_inc = scan.angle_increment;
-    scan_span = scan.ranges.size();
+    ang_inc = scan->angle_increment;
+    scan_span = scan->ranges.size();
     int center_index = (scan_span-1)/2;
     int right_index = center_index - (M_PI/2)/ang_inc;
     int left_index = center_index + (M_PI/2)/ang_inc;
-    world.center.assignPoint(scan.ranges[center_index],center_index);
-    world.right.assignPoint(scan.ranges[right_index],right_index);
-    world.left.assignPoint(scan.ranges[left_index],left_index);
+    this->world.center.assignPoint(scan->ranges[center_index],center_index);
+    this->world.right.assignPoint(scan->ranges[right_index],right_index);
+    this->world.left.assignPoint(scan->ranges[left_index],left_index);
     measure_log.open("../measure_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Measurment Log: " + string(ctime(&now)));
+    log("scan_span: " + to_string(scan_span));
+    log("ang_inc: " + to_string(ang_inc));
+    log("side_range: " + to_string(side_range));
+    log("padding: " + to_string(padding));
+    log("av_range: " + to_string(av_range));
+    log("min_range: " + to_string(min_range));
+    log("min_permit_dist: " + to_string(min_permit_dist));
     log("center, right, left, farthest, nearest, front_clear, right_clear, left_clear");
 }
 
@@ -94,9 +98,9 @@ int Measurement::measure()
         world.angle = odom.a;
     else
         ret -= 2;
-    log(to_string(world.center.d)+','+to_string(world.right.d)+','+to_string(world.left.d));
-    log(to_string(world.farthest.d)+','+to_string(world.nearest.d));
-    log(to_string(world.front_clear)+','+to_string(world.right_clear)+','+to_string(world.left_clear));
+    log(to_string(world.center.d)+','+to_string(world.right.d)+','+to_string(world.left.d)+','+
+        to_string(world.farthest.d)+','+to_string(world.nearest.d)+','+
+        to_string(world.front_clear)+','+to_string(world.right_clear)+','+to_string(world.left_clear));
     return ret;
 }
 
@@ -108,8 +112,11 @@ void Measurement::getMaxMinDist()
     world.front_clear = true;
     world.right_clear = true;
     world.left_clear = true;
+    //cout << "padding:" <<padding <<endl;
+    //cout << "scan_span:" <<scan_span<<endl;
     for (int i = padding; i < scan_span-padding; ++i)
     {
+        //cout << i << endl;
         if (scan.ranges[i] > world.farthest.d)
         {
             world.farthest.assignPoint(scan.ranges[i],i);
@@ -146,7 +153,7 @@ void Measurement::log(string text)
     measure_log << text << endl;
 #endif
 #if MEASURE_LOG_FLAG == 2 || MEASURE_LOG_FLAG == 3
-    cout << text << endl;
+    cout << "sense: " << text << endl;
 #endif
 }
 

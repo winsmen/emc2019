@@ -16,6 +16,7 @@
 #include <ctime>
 
 #include "measurement.h"
+#include "mapping.h"
 
 #define LEFT        1
 #define RIGHT       2
@@ -70,6 +71,7 @@ public:
     sys_state state;
     Performance specs;
     Measurement *sense;
+    Mapping *map;
     World world;
 
     // Measurement Constants
@@ -122,13 +124,13 @@ public:
     ~Robot();
 
     // Main Functions
-int measure();
-    int map();
+    int measure();
+    int identify();
     int plan();
     int actuate();
 
     // Measurement
-void getMaxMinDist();
+    void getMaxMinDist();
 
     // Mapping
     bool computeTrajectoryToExit();
@@ -164,7 +166,7 @@ void Robot::log(string text)
     outfile << text << endl;
 #endif
 #if LOG_FLAG == 2 || LOG_FLAG == 3
-    cout << text << endl;
+    cout << "main: " << text << endl;
 #endif
 }
 //
@@ -194,7 +196,9 @@ Robot::Robot(Performance s, sys_state state=STARTUP)
     found_corridor = 0;
     scan_count = 0;
     log("Initialising Measurement Module");
-    sense = new Measurement(io,scan,odom,world,specs);
+    sense = new Measurement(&io,&scan,&odom,&world,specs);
+    log("Initialising Mapping Module");
+    map = new Mapping(&scan,&odom,&world,specs);
     log("Pico State: STARTUP");
     io.speak("Pico ready");
 }
@@ -231,7 +235,7 @@ int Robot::measure()
 }
 
 
-int Robot::map()
+int Robot::identify()
 {
 //    cout << scan.ranges[0] << endl;
     int mult = 2;

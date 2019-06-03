@@ -21,15 +21,17 @@ int main()
     Performance specs(MIN_PERMIT_DIST,DIST_COMPARE_TOL,CORNER_COMPARE_TOL,ANGLE_COMPARE_TOL,
                       PADDING,AV_RANGE,SIDE_RANGE,MIN_RANGE,HEARTBEAT,MAX_TRANS,MAX_ROT);
     Robot pico(specs,STARTUP);
-
     while(pico.io.ok())
     {
+        //cout << 1;
         if (pico.sense->measure() != 1)
         {
             pico.r.sleep();
             continue;
         }
-        pico.map();
+        //cout << 2;
+        pico.map->identify();
+        //cout << 3 <<endl;
 #if PLAN_ENABLED
         pico.plan();
 #endif
