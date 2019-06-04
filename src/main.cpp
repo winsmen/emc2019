@@ -5,7 +5,7 @@
 
 #define MIN_PERMIT_DIST     0.6
 #define DIST_COMPARE_TOL    0.01
-#define CORNER_COMPARE_TOL  0.1
+#define CORNER_COMPARE_TOL  0.08
 #define ANGLE_COMPARE_TOL   0.1
 #define PADDING             15
 #define AV_RANGE            20
@@ -38,7 +38,7 @@ int main()
         }
         //cout << 2;
         pico.map->identify();
-        break;
+        //break;
         //cout << 3 <<endl;
 #if PLAN_ENABLED
         pico.plan();
@@ -52,7 +52,7 @@ int main()
             break;
         loss_count = 0;
     }
-    cin >> loss_count;
+    //sleep(10);
     return 0;
 }
 

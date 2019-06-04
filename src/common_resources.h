@@ -57,6 +57,7 @@ struct World
     vector<LRFpoint> convex_corners;
     vector<LRFpoint> concave_corners;
     vector<LRFpoint> clustered_concave_corners;
+    vector<LRFpoint> clustered_convex_corners;
     vector<LRFpoint> dist_smooth;
 
     World();
@@ -67,6 +68,7 @@ struct World
 struct Exit
 {
     LRFpoint leftEdge,rightEdge;
+    Exit(LRFpoint l, LRFpoint r) : leftEdge(l), rightEdge(r) {}
 };
 
 
@@ -125,8 +127,8 @@ string to_string(const T& n)
 
 void polar2cart(double r,double theta, double &x,double &y, double x_off = 0, double y_off = 0)
 {
-    x = x_off + r*sin(theta)*80;
-    y = y_off - r*cos(theta)*80;
+    x = x_off + r*sin(theta);
+    y = y_off - r*cos(theta);
 }
 
 inline double distance(double x1, double y1, double x2, double y2)
