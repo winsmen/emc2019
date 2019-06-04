@@ -42,7 +42,7 @@ double distance_corner12=distance(corner_x1,corner_y1,corner_x2,corner_y2);
 double distance_corner34=distance(corner_x3,corner_y3,corner_x4,corner_y4);
 
 void localization(){
-if (distance_corner12-distance_corner12_measured <= tollarance && distance_corner34 <= distance_corner34_measured)
+if (distance_corner12-distance_corner12_measured <= tollarance && distance_corner34 - distance_corner34_measured <= tollarance)
 {
     cout << "Exit is located" << endl;
     x_robot=corner_x1-sin(angle1)*corner.0.d;
