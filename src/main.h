@@ -73,6 +73,7 @@ public:
     Measurement *sense;
     Mapping *map;
     World world;
+    vector<int> cabinet_order;
 
     // Measurement Constants
     double ang_inc;
@@ -120,7 +121,7 @@ public:
     double start_angle;
 
     // Constructor
-    Robot(Performance specs, sys_state state);
+    Robot(Performance specs, sys_state state, cabinet_order);
     ~Robot();
 
     // Main Functions
@@ -259,8 +260,7 @@ int Robot::identify()
         }
     }
     n_corners = corner.size();
-    text =  "Number of corners: " + to_string(n_corners);
-    log(text);
+    log("Number of corners: " + to_string(n_corners));
 //    cout << "Number of corners: " << n_corners << endl;
     if (n_corners > 0)
     {
@@ -387,8 +387,7 @@ int Robot::plan()
         theta = start_angle + (2*M_PI-4);
         if (theta > M_PI)
             theta -= 2*M_PI;
-        text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);    
-        log(text);
+        log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta));
         //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
         break;
 
@@ -398,14 +397,14 @@ int Robot::plan()
         if (found_corridor == 10)
         {
             start_angle = corridor_center;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             //cout << "Found exit at: " << corridor_center << endl;
             state = FACE_EXIT;
             break;
         }
         // Sweep complete
         cout << "Current angle: " << world.angle << " Destination Angle: " << theta << endl;
+        log("Current angle: " + to_string(world.angle) + " Destination Angle: " + to_string(theta));
         if (fabs(world.angle - theta) < angle_compare_tol)
         {
             ++scan_count;
@@ -415,11 +414,9 @@ int Robot::plan()
                 state = MOVE_TO_MAX;
             vtheta = 0;
             dx = world.center.d/3;
-            text =  "Did not find exit in this scan. Moving forward by: " + to_string(dx); 
-            log(text);
+            log("Did not find exit in this scan. Moving forward by: " + to_string(dx));
             //cout << "Did not find exit in this scan. Moving forward by: " << dx << endl;
-            text = "Min at index: " + to_string(world.nearest.i);
-            log(text);
+            log("Min at index: " + to_string(world.nearest.i));
             //cout << "Min at index: " << min_dist_dir << endl;
         }
         break;
@@ -427,14 +424,12 @@ int Robot::plan()
     case MOVE_TO_MAX:
         vtheta = 0;
         vx = maxTrans;
-        text = "dx: " + to_string(dx) + " dist_center: " + to_string(world.center.d) + " Front clear: " + to_string(world.front_clear);
-        log(text);
+        log("dx: " + to_string(dx) + " dist_center: " + to_string(world.center.d) + " Front clear: " + to_string(world.front_clear);
         //cout << "dx: " << dx << " dist_center: " << dist_center << " Front clear: " << front_clear << endl;
         if (world.center.d < dx || !world.front_clear)
         {
             //cout << "Reached max distance" << endl;
-            text = "Reached max distance";
-            log(text);
+            log("Reached max distance");
             vx = 0;
             state = SCAN_FOR_EXIT;
             start_angle = world.angle;
@@ -442,14 +437,12 @@ int Robot::plan()
             if (theta > M_PI)
                 theta -= 2*M_PI;
             //cout << "Start angle: " << start_angle << " End Angle: " << theta << endl;
-            text = "Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta);
-            log(text);
+            log("Start angle: " + to_string(start_angle) + " End Angle: " + to_string(theta));
         }
         if (found_corridor == 10)
         {
             //cout << "Found exit at: " << corridor_center << endl;
-            text = "Found exit at: " + to_string(corridor_center);
-            log(text);
+            log("Found exit at: " + to_string(corridor_center));
             start_angle = corridor_center;
             state = FACE_EXIT;
         }
@@ -459,14 +452,12 @@ int Robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan);
             state = SCAN_FOR_EXIT;
             break;
         }
         //cout << "Corridor at: " << corridor_center << endl;
-        text = "Corridor at: " + to_string(corridor_center);
-        log(text);
+        log("Corridor at: " + to_string(corridor_center));
         if (corridor_center-world.center.i > 5)
             vtheta = min((corridor_center-world.center.i)/35.0,double(maxRot));
         else if (corridor_center-world.center.i < -5)
@@ -485,8 +476,7 @@ int Robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            text = "Lost exit; returning to scan";
-            log(text);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
@@ -495,8 +485,7 @@ int Robot::plan()
         if ((world.left.d < 2*min_dist_from_wall && world.right.d < 2*min_dist_from_wall))
         {
             //cout << "Arrived at corridor" << endl;
-            text = "Arrived at corridor";
-            log(text);
+            log("Arrived at corridor");
             vx = 0;
             state = FOLLOW_CORRIDOR;
             break;
@@ -932,79 +921,67 @@ int Robot::actuate()
 
 void Robot::printState()
 {
-    text = "Pico State: ";
-    log(text);
+    log("Pico State: ");
     //cout << "Pico State: ";
     switch(state)
     {
     case STARTUP:
-        text = "STARTUP";
-        log(text);
+        log("STARTUP");
         //cout << "STARTUP" << endl;
         break;
     case SCAN_FOR_EXIT:
-        text = "SCAN_FOR_EXIT";
-        log(text);
+        log("SCAN_FOR_EXIT");
         //cout << "SCAN_FOR_EXIT" << endl;
         break;
     case FACE_EXIT:
-        text = "FACE_EXIT";
-        log(text);
+        log("FACE_EXIT");
         //cout << "FACE_EXIT" << endl;
         break;
     case EXIT_UNDETECTABLE:
-        text = "EXIT_UNDETECTABLE";
-        log(text);
+        log("EXIT_UNDETECTABLE");
         //cout << "EXIT_UNDETECTABLE" << endl;
         break;
     case ORIENT_TO_EXIT_WALL:
-        text = "ORIENT_TO_EXIT_WALL";
-        log(text);
+        log("ORIENT_TO_EXIT_WALL");
         //cout << "ORIENT_TO_EXIT_WALL" << endl;
         break;
     case DRIVE_TO_EXIT:
-        text = "DRIVE_TO_EXIT";
-        log(text);
+        log("DRIVE_TO_EXIT");
         //cout << "DRIVE_TO_EXIT" << endl;
         break;
     case EXIT_CORRIDOR_FOLLOW:
-        text = "EXIT_CORRIDOR_FOLLOW";
-        log(text);
+        log("EXIT_CORRIDOR_FOLLOW");
         //cout << "EXIT_CORRIDOR_FOLLOW" << endl;
         break;
     case STOP:
-        text = "STOP";
-        log(text);
+        log("STOP");
         //cout << "STOP" << endl;
         break;
     case FIND_WALL:
-        cout << "FIND_WALL" << endl;
+        log("FIND_WALL");
         break;
     case GO_TO_WALL:
-        cout << "GO_TO_WALL" << endl;
+        log("GO_TO_WALL");
         break;
     case ALIGN_TO_WALL:
-        cout << "ALIGN_TO_WALL" << endl;
+        log("ALIGN_TO_WALL");
         break;
     case FOLLOW_WALL:
-        cout << "FOLLOW_WALL" << endl;
+        log("FOLLOW_WALL");
         break;
     case CORNER:
-        cout << "CORNER" << endl;
+        log("CORNER");
         break;
     case ENTER_EXIT_CORRIDOR:
-        text = "ENTER_EXIT_CORRIDOR";
-        log(text);
+        log("ENTER_EXIT_CORRIDOR");
         //cout << "ENTER_EXIT_CORRIDOR" << endl;
         break;
     case FOLLOW_CORRIDOR:
-        text = "FOLLOW_CORRIDOR";
-        log(text);
+        log("FOLLOW_CORRIDOR");
         //cout << "FOLLOW_CORRIDOR" << endl;
         break;
     case MOVE_TO_MAX:
-        text = "MOVE_TO_MAX";
-        log(text);
+        log("MOVE_TO_MAX");
         //cout << "MOVE_TO_MAX" << endl;
         break;
     }
