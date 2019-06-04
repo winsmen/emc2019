@@ -54,8 +54,10 @@ struct World
     LRFpoint farthest, nearest;
     bool front_clear,right_clear,left_clear;
     vector<Exit> exits;
-    vector<LRFpoint> convexCorners;
-    vector<LRFpoint> concaveCorners;
+    vector<LRFpoint> convex_corners;
+    vector<LRFpoint> concave_corners;
+    vector<LRFpoint> clustered_concave_corners;
+    vector<LRFpoint> dist_smooth;
 
     World();
     ~World();

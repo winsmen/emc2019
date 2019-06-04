@@ -21,16 +21,24 @@ int main()
     Performance specs(MIN_PERMIT_DIST,DIST_COMPARE_TOL,CORNER_COMPARE_TOL,ANGLE_COMPARE_TOL,
                       PADDING,AV_RANGE,SIDE_RANGE,MIN_RANGE,HEARTBEAT,MAX_TRANS,MAX_ROT);
     Robot pico(specs,STARTUP);
+    int loss_count = 0;
     while(pico.io.ok())
     {
         //cout << 1;
         if (pico.sense->measure() != 1)
         {
             pico.r.sleep();
+            loss_count += 1;
+            if (loss_count >= 10)
+            {
+                cout << "Warning: Sensing failure for more than 10 iterations! Switching off locomotion.";
+                pico.io.sendBaseReference(0,0,0);
+            }
             continue;
         }
         //cout << 2;
         pico.map->identify();
+        break;
         //cout << 3 <<endl;
 #if PLAN_ENABLED
         pico.plan();
@@ -42,8 +50,9 @@ int main()
         //pico.r.sleep();
         if (pico.state == STOP)
             break;
+        loss_count = 0;
     }
-
+    cin >> loss_count;
     return 0;
 }
 
