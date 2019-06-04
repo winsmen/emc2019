@@ -177,7 +177,7 @@ void Robot::log(string text)
 //    outfile.close();
 
 
-Robot::Robot(Performance s, sys_state state=STARTUP)
+Robot::Robot(Performance s, sys_state state=STARTUP,cabinet_order)
     : specs(s), r(s.heartbeat), maxTrans(s.maxTrans), maxRot(s.maxRot), state(state)
 {
     outfile.open("../log.txt", ios::out | ios::trunc);
