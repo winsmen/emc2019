@@ -51,7 +51,6 @@ enum sys_state
 };
 
 string text;
-string comma(",");
 
 
 class Robot
