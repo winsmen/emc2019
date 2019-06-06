@@ -8,7 +8,6 @@
 
 using namespace std;
 
-
 struct LRFpoint;
 struct CartPoint;
 struct Line;
