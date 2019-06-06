@@ -1,4 +1,7 @@
 #include "main.h"
+#include <iostream>
+#include <vector>
+#include <string>
 
 #define PLAN_ENABLED        false
 #define ACTUATE_ENABLED     false
@@ -15,12 +18,27 @@
 #define MAX_ROT             0.5
 #define MAX_TRANS           0.25
 
+void cabinet_order()
+{
+        int myint;
+        vector<int> cabinet_number;
+        cout << "Please enter the order of the cabinets (enter 1000 to end):\n";
+        do {
+    		cin >> myint;
+    		cabinet_number.push_back (myint);
+        } while (myint != 1000);
+    	cabinet_number.pop_back();
+        cout << int(cabinet_number.size()) << " cabinets will be reached.\n";
+}
+
 int main()
 {
+    // cabinet order
+    
     // Setup
     Performance specs(MIN_PERMIT_DIST,DIST_COMPARE_TOL,CORNER_COMPARE_TOL,ANGLE_COMPARE_TOL,
                       PADDING,AV_RANGE,SIDE_RANGE,MIN_RANGE,HEARTBEAT,MAX_TRANS,MAX_ROT);
-    Robot pico(specs,STARTUP);
+    Robot pico(specs,STARTUP,cabinet_number);
     int loss_count = 0;
     while(pico.io.ok())
     {
