@@ -429,7 +429,7 @@ int Robot::plan()
         if (found_corridor == 0)
         {
             //cout << "Lost exit; returning to scan" << endl;
-            log("Lost exit; returning to scan);
+            log("Lost exit; returning to scan");
             state = SCAN_FOR_EXIT;
             break;
         }
