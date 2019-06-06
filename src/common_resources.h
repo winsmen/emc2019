@@ -8,7 +8,6 @@
 
 using namespace std;
 
-
 struct LRFpoint;
 struct World;
 struct Exit;
