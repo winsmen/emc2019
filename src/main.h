@@ -17,6 +17,7 @@
 
 #include "measurement.h"
 #include "mapping.h"
+#include "planning.h"
 
 #define LEFT        1
 #define RIGHT       2
@@ -64,10 +65,10 @@ public:
     emc::Rate r;
     float maxTrans;
     float maxRot;
-    static const float min_dist_from_wall = 0.6;
-    static const float dist_compare_tol = 0.01;
-    static const float corner_compare_tol = 0.1;
-    static const float angle_compare_tol = 0.1;
+    float min_dist_from_wall = 0.6;
+    float dist_compare_tol = 0.01;
+    float corner_compare_tol = 0.1;
+    float angle_compare_tol = 0.1;
     sys_state state;
     Performance specs;
     Measurement *sense;

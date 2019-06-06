@@ -8,6 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <fstream>
+#include "json.hpp"
 #include "common_resources.h"
 
 #include <iostream>
@@ -18,6 +19,7 @@ using namespace std;
 #endif
 
 using namespace cv;
+using namespace std;
 
 class Mapping
 {
@@ -32,7 +34,9 @@ class Mapping
     const double min_range;
     Mat frame;
     ofstream mapping_log;
-    static const int display_scale = 50;
+    static const int display_scale = 80;
+    std::ifstream map;
+    vector<int> av;
 
     //Mapped Variables
     World &world;
@@ -44,12 +48,13 @@ public:
     int identify();
     void simplifyClusters();
     void displayMap();
+    void readMap();
     void log(string text);
 };
 
 
 Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs)
-    : scan(*scan), odom(*odom), world(*world), min_range(specs.min_range),
+    : scan(*scan), odom(*odom), world(*world), map("../finalmap.json"), min_range(specs.min_range),
       padding(specs.padding), av_range(specs.av_range), corner_compare_tol(specs.corner_compare_tol)
 {
     ang_inc = scan->angle_increment;
@@ -57,6 +62,7 @@ Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, co
     mapping_log.open("../mapping_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Mapping Log: " + string(ctime(&now)));
+    readMap();
 }
 
 
@@ -69,16 +75,17 @@ Mapping::~Mapping()
 int Mapping::identify()
 {
     //cout << 1;
-    int mult = 4;
+    int mult = 0;
 
     // Corner Detection
     world.concave_corners.clear();
     world.convex_corners.clear();
     world.exits.clear();
     world.dist_smooth.clear();
-    world.clustered_concave_corners.clear();
-    world.clustered_convex_corners.clear();
-    for (int i = padding+av_range; i < scan_span-padding-av_range-1; ++i)
+    av.clear();
+    cart_av_x.clear();
+    cart_av_y.clear();
+    for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
         double dist_av = pow((av_range+1),mult)*scan.ranges[i];
         double av_x = 0, av_y = 0;
@@ -90,56 +97,64 @@ int Mapping::identify()
             polar2cart(scan.ranges[i+j],(i+j)*-ang_inc+2,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
+            cart_av_x.push_back(x);
+            cart_av_y.push_back(y);
+            av.push_back(0);
             polar2cart(scan.ranges[i-j],(i-j)*-ang_inc+2,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
+            cart_av_x.push_back(x);
+            cart_av_y.push_back(y);
+            av.push_back(0);
             den += 2*pow(j,mult);
+            //        polar2cart(dist_av,i*-ang_inc,av_x,av_y);
         }
         polar2cart(scan.ranges[i],i*-ang_inc,x,y);
-        av_x = pow(av_range+1,mult)*x;
-        av_y = pow(av_range+1,mult)*y;
+        av_x += pow(av_range+1,mult)*x;
+        av_y += pow(av_range+1,mult)*y;
         av_x /= den;
         av_y /= den;
         dist_av /= den;
-        world.dist_smooth.push_back(LRFpoint(dist_av,i));
         cart_av_x.push_back(av_x);
         cart_av_y.push_back(av_y);
-        if (distance(av_x,av_y,x,y) > corner_compare_tol)
+        av.push_back(1);
+        world.dist_smooth.push_back(LRFpoint(dist_av,i));
+        if (distance(av_x,av_y,x,y) > 20*corner_compare_tol)
         {
             if ((dist_av + corner_compare_tol < scan.ranges[i]) && scan.ranges[i] > min_range)
             {
                 world.concave_corners.push_back(LRFpoint(scan.ranges[i],i));
                 //log(to_string(i) + ":" + to_string(distance(x1,y1,x2,y2)));
             }
-            else if ((dist_av - corner_compare_tol > scan.ranges[i]) && scan.ranges[i] > min_range)
+            else if ((dist_av - 5*corner_compare_tol > scan.ranges[i]) && scan.ranges[i] > min_range)
                 world.convex_corners.push_back(LRFpoint(scan.ranges[i],i));
         }
     }
     simplifyClusters();
-    log("Number of concave corners: " + to_string(world.clustered_concave_corners.size()));
-    log("Number of convex corners: " + to_string(world.clustered_convex_corners.size()));
+    log("Number of concave corners: " + to_string(world.concave_corners.size()));
+    log("Number of convex corners: " + to_string(world.convex_corners.size()));
 
     // Exit Detection
     world.exits.clear();
-    if (world.clustered_convex_corners.size() > 0)
+    if (world.convex_corners.size() > 0)
     {
-        for (int i = 0; i < world.clustered_convex_corners.size()-1; ++i)
+        for (int i = 0; i < world.convex_corners.size()-1; ++i)
         {
             double x1, x2, y1, y2;
-            polar2cart(world.clustered_convex_corners[i].d,world.clustered_convex_corners[i].i*-ang_inc,x1,y1);
-            polar2cart(world.clustered_convex_corners[i+1].d,world.clustered_convex_corners[i+1].i*-ang_inc,x2,y2);
-            double midpoint_dist = (world.clustered_convex_corners[i].d + world.clustered_convex_corners[i+1].d)/2;
-            int midpoint_ind = (world.clustered_convex_corners[i].i + world.clustered_convex_corners[i+1].i)/2;
-            if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.2 /*&& scan.ranges[midpoint_ind] - midpoint_dist > 0.5*/)
+            polar2cart(world.convex_corners[i].d,world.convex_corners[i].i*-ang_inc,x1,y1);
+            polar2cart(world.convex_corners[i+1].d,world.convex_corners[i+1].i*-ang_inc,x2,y2);
+            double midpoint_dist = (world.convex_corners[i].d + world.convex_corners[i+1].d)/2;
+            int midpoint_ind = (world.convex_corners[i].i + world.convex_corners[i+1].i)/2;
+            if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.3 && scan.ranges[midpoint_ind] - midpoint_dist > 0.5)
             {
-                world.exits.push_back(Exit(world.clustered_concave_corners[i],world.clustered_concave_corners[i+1]));
+                world.exits.push_back(Exit(world.concave_corners[i],world.concave_corners[i+1]));
                 ++i;
             }
             log("Distance between concave corners " + to_string(i) + ": " + to_string(distance(x1,y1,x2,y2)));
-            log("r1: " + to_string(world.clustered_convex_corners[i].d));
-            log("i1: " + to_string(world.clustered_convex_corners[i].i));
-            log("r2: " + to_string(world.clustered_convex_corners[i+1].d));
-            log("i2: " + to_string(world.clustered_convex_corners[i+1].i));
+            log("r1: " + to_string(world.convex_corners[i].d));
+            log("i1: " + to_string(world.convex_corners[i].i));
+            log("r2: " + to_string(world.convex_corners[i+1].d));
+            log("i2: " + to_string(world.convex_corners[i+1].i));
             log("midpoint_dist: " + to_string(midpoint_dist));
             log("scan.ranges[midpoint_ind]:" + to_string(scan.ranges[midpoint_ind]));
         }
@@ -156,7 +171,7 @@ int Mapping::identify()
 
 void Mapping::simplifyClusters()
 {
-    vector<LRFpoint> cluster;
+    vector<LRFpoint> cluster, temp;
 
     // Cluster Concave Corner Points
     if (!world.concave_corners.empty())
@@ -173,7 +188,7 @@ void Mapping::simplifyClusters()
             else
             {
                 //cout << "Cluster complete" << endl;
-                world.clustered_concave_corners.push_back(cluster[cluster.size()/2]);
+                temp.push_back(cluster[cluster.size()/2]);
                 //cout << "CLuster center: " << world.clustered_concave_corners.back().i << endl;
                 cluster.clear();
                 //cout << "Starting with " << world.concave_corners[i].i << endl;
@@ -183,13 +198,15 @@ void Mapping::simplifyClusters()
         if (!cluster.empty())
         {
             //cout << "Cluster complete" << endl;
-            world.clustered_concave_corners.push_back(cluster[cluster.size()/2]);
+            temp.push_back(cluster[cluster.size()/2]);
             //cout << "CLuster center: " << world.clustered_concave_corners.back().i << endl;
             cluster.clear();
         }
     }
+    world.concave_corners = temp;
 
     // Cluster Convex Corner Points
+    temp.clear();
     if(!world.convex_corners.empty())
     {
         cluster.push_back(world.convex_corners[0]);
@@ -204,7 +221,7 @@ void Mapping::simplifyClusters()
             else
             {
                 //cout << "Cluster complete" << endl;
-                world.clustered_convex_corners.push_back(cluster[cluster.size()/2]);
+                temp.push_back(cluster[cluster.size()/2]);
                 //cout << "CLuster center: " << world.clustered_concave_corners.back().i << endl;
                 cluster.clear();
                 //cout << "Starting with " << world.concave_corners[i].i << endl;
@@ -213,12 +230,15 @@ void Mapping::simplifyClusters()
         }
         if (!cluster.empty())
         {
+            //TODO add end corner condition
+
             //cout << "Cluster complete" << endl;
-            world.clustered_convex_corners.push_back(cluster[cluster.size()/2]);
+            temp.push_back(cluster[cluster.size()/2]);
             //cout << "CLuster center: " << world.clustered_concave_corners.back().i << endl;
             cluster.clear();
         }
     }
+    world.convex_corners = temp;
 }
 
 
@@ -229,90 +249,66 @@ void Mapping::displayMap()
     double x_c = frame_dim/2.0;
     double y_c = frame_dim/2.0;
     double x,y;
-    for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
+//    for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
+//    {
+//        polar2cart(scan.ranges[i]*display_scale,(i*-ang_inc)+2,x,y,x_c,y_c);
+//        circle(frame,Point(x,y),1,Scalar(180,180,180),1,8);
+//    }
+    for (int i = 0; i < cart_av_x.size(); ++i)
     {
-        polar2cart(scan.ranges[i]*display_scale,(i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(180,180,180),1,8);
+        if (av[i] == 1)
+            ;//circle(frame,Point(cart_av_x[i]*display_scale+x_c,cart_av_y[i]*display_scale+y_c),1,Scalar(255,0,0),1,8);
+        else
+            circle(frame,Point(cart_av_x[i]*display_scale+x_c,cart_av_y[i]*display_scale+y_c),1,Scalar(0,255,0),1,8);
     }
-    for (int i = 0; i < world.dist_smooth.size(); ++i)
+    int n_points = world.dist_smooth.size();
+    for (int i = 0; i < n_points; ++i)
     {
-        polar2cart(world.dist_smooth[i].d,(world.dist_smooth[i].i*-ang_inc)+2,x,y);
-        circle(frame,Point((x+corner_compare_tol)*display_scale+x_c,(y+corner_compare_tol)*display_scale+y_c),1,Scalar(255,255,255),1,8);
-        circle(frame,Point((x+corner_compare_tol)*display_scale+x_c,(y-corner_compare_tol)*display_scale+y_c),1,Scalar(255,255,255),1,8);
-        circle(frame,Point((x-corner_compare_tol)*display_scale+x_c,(y+corner_compare_tol)*display_scale+y_c),1,Scalar(255,255,255),1,8);
-        circle(frame,Point((x-corner_compare_tol)*display_scale+x_c,(y-corner_compare_tol)*display_scale+y_c),1,Scalar(255,255,255),1,8);
-//        polar2cart((world.dist_smooth[i].d)*display_scale,(world.dist_smooth[i].i*-ang_inc)+2,x,y,x_c,y_c);
-//        circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
+        polar2cart(world.dist_smooth[i].d*display_scale,(world.dist_smooth[i].i*-ang_inc)+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(255,0,100),1,8);
     }
-    int n_points = world.concave_corners.size();
+    n_points = world.concave_corners.size();
     for (int i = 0; i < n_points; ++i)
     {
         polar2cart(world.concave_corners[i].d*display_scale,(world.concave_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(255,255,0),1,8);
+        circle(frame,Point(x,y),5,Scalar(255,0,0),2,8);
     }
     n_points = world.convex_corners.size();
     for (int i = 0; i < n_points; ++i)
     {
         polar2cart(world.convex_corners[i].d*display_scale,(world.convex_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(0,255,255),1,8);
+        circle(frame,Point(x,y),5,Scalar(0,0,255),2,8);
     }
-    n_points = world.clustered_concave_corners.size();
-    for (int i = 0; i < n_points; ++i)
-    {
-        polar2cart(world.clustered_concave_corners[i].d*display_scale,(world.clustered_concave_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(0,0,255),3,8);
-    }
-    n_points = world.clustered_convex_corners.size();
-    for (int i = 0; i < n_points; ++i)
-    {
-        polar2cart(world.clustered_convex_corners[i].d*display_scale,(world.clustered_convex_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(255,0,255),3,8);
-    }
-/*
-    switch(state)
-    {
-    case FOLLOW_CORRIDOR:
-        for (int i = 0; i < 40; ++i)
-        {
-            polar2cart((scan.ranges[right]/cos(i*ang_inc))+dist_compare_tol,((right+i)*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[right]/cos(i*ang_inc))-dist_compare_tol,((right+i)*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[left]/cos(i*ang_inc))+dist_compare_tol,((left-i)*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart((scan.ranges[left]/cos(i*ang_inc))-dist_compare_tol,((left-i)*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-        }
-        break;
-    default:
-        for (int i = av_range+padding; i < scan_span-padding-av_range; ++i)
-        {
-            polar2cart(distance[i-padding-av_range]+corner_compare_tol,(i*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-            polar2cart(distance[i-padding-av_range]-corner_compare_tol,(i*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
-        }
-        if (n_corners > 1)
-        {
-            for (int i = 0; i < n_corners; ++i)
-            {
-                polar2cart(corner_dist[i],(corner_angle[i]*-ang_inc)+2,x,y,x_c,y_c);
-                circle(frame,Point(x,y),1,Scalar(255,255,0),1,8);
-            }
-        }
-        if (found_corridor == 10)
-        {
-            polar2cart(corridor_center_dist,(corridor_center*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),3,Scalar(0,255,0),2,8);
-            polar2cart(corner_dist[0],(corner_angle[0]*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
-            polar2cart(corner_dist[n_corners-1],(corner_angle[n_corners-1]*-ang_inc)+2,x,y,x_c,y_c);
-            circle(frame,Point(x,y),1,Scalar(0,0,255),1,8);
-        }
-    }
-*/
+
     imshow("Visualization",frame);
     waitKey(25);
+}
+
+void Mapping::readMap()
+{
+    nlohmann::json doc = nlohmann::json::parse(map);
+    for (const auto& p : doc.at("points") )
+    {
+        assert(p.is_object());
+        assert(p.find("x") != p.end());  // check for key x
+        assert(p.find("y") != p.end());  // check for key y
+        world.points.push_back(CartPoint(p["x"], p["y"]));
+    }
+
+    for (const auto& l : doc.at("walls") )
+    {
+        world.walls.push_back(Line(l[0], l[1]));
+    }
+
+    for (const auto& cab : doc.at("cabinets") )
+    {
+        typedef vector<Line> Cabinet;
+        Cabinet cabinet;
+        for (const auto& l : cab){
+            cabinet.push_back(Line(l[0], l[1]));
+        }
+        world.cabinets.push_back(cabinet);
+    }
 }
 
 void Mapping::log(string text)

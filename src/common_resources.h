@@ -10,6 +10,8 @@ using namespace std;
 
 
 struct LRFpoint;
+struct CartPoint;
+struct Line;
 struct World;
 struct Exit;
 struct Preformance;
@@ -47,6 +49,24 @@ struct LRFpoint
 };
 
 
+struct CartPoint {
+    double x;
+    double y;
+    CartPoint(double x_, double y_ ): x(x_), y(y_)
+    {
+    }
+};
+
+
+struct Line {
+    int p1;
+    int p2;
+    Line(int p1_, int p2_ ): p1(p1_), p2(p2_)
+    {
+    }
+};
+
+
 struct World
 {
     LRFpoint center, right, left;
@@ -56,9 +76,11 @@ struct World
     vector<Exit> exits;
     vector<LRFpoint> convex_corners;
     vector<LRFpoint> concave_corners;
-    vector<LRFpoint> clustered_concave_corners;
-    vector<LRFpoint> clustered_convex_corners;
     vector<LRFpoint> dist_smooth;
+    vector<CartPoint> points;
+    vector<Line> walls;
+    typedef vector<Line> Cabinet;
+    vector<Cabinet> cabinets;
 
     World();
     ~World();
@@ -96,14 +118,14 @@ World::~World()
 
 struct Performance
 {
-    const float min_permit_dist;
-    const float dist_compare_tol;
-    const float corner_compare_tol;
-    const float angle_compare_tol;
+    const double min_permit_dist;
+    const double dist_compare_tol;
+    const double corner_compare_tol;
+    const double angle_compare_tol;
     const int padding;
     const int av_range;
     const int side_range;
-    const float min_range;
+    const double min_range;
     const int heartbeat;
     const double maxRot,maxTrans;
 
