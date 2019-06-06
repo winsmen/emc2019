@@ -77,23 +77,6 @@ public:
     // Measurement Constants
     double ang_inc;
     int scan_span;
-//    int center;
-//    int right;
-//    int left;
-    // Measurement Variables
-//    double dist_center;
-//    double dist_right;
-//    double dist_left;
-//    bool front_clear;
-//    bool right_clear;
-//    bool left_clear;
-//    double max_dist;
-//    double max_dist_dir;
-//    double max_dist_front;
-//    double max_dist_front_dir;
-//    double min_dist;
-//    double min_dist_dir;
-//    double angle;
     static const int padding = 15;
     static const int av_range = 20;
     vector<double> distance;    //unused
@@ -124,17 +107,12 @@ public:
     ~Robot();
 
     // Main Functions
-    int measure();
-    int identify();
     int plan();
     int actuate();
 
     // Measurement
-    void getMaxMinDist();
 
     // Mapping
-    bool computeTrajectoryToExit();
-    void displayMap();
 
     // Planning
 
@@ -987,190 +965,5 @@ void Robot::printState()
     io.sendBaseReference(0,0,0);
     sleep(1);
 }
-
-
-void Robot::getMaxMinDist()
-{
-    world.farthest.assignPoint(scan.ranges[0],scan.range_min);
-    world.nearest.assignPoint(scan.ranges[0],scan.range_max);
-    world.front_clear = true;
-    world.right_clear = true;
-    world.left_clear = true;
-    for (int i = padding; i < scan_span-padding; ++i)
-    {
-        if (scan.ranges[i] > world.farthest.d)
-        {
-            world.farthest.assignPoint(scan.ranges[i],i);
-        }
-        else if (scan.ranges[i] < world.nearest.d && scan.ranges[i] > specs.min_range)
-        {
-            world.nearest.assignPoint(scan.ranges[i],i);
-        }
-        if (abs(i - world.right.i) < specs.side_range)
-        {
-            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
-                world.right_clear = false;
-        }
-        else if (abs(i - world.left.i) < specs.side_range)
-        {
-            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
-            {
-                world.left_clear = false;
-            }
-        }
-        else if (abs(i - world.center.i) < specs.side_range)
-        {
-            if (scan.ranges[i] < specs.min_permit_dist && scan.ranges[i] > specs.min_range)
-            {
-                world.front_clear = false;
-            }
-        }
-    }
-}
-
-/*void Robot::getMaxMinDist()
-{
-    max_dist = scan.ranges[0];
-    max_dist_front = scan.ranges[center];
-    min_dist = scan.range_max;
-    max_dist_dir = min_dist_dir = 0;
-    front_clear = true;
-    right_clear = true;
-    left_clear = true;
-    for (int i = padding; i < scan_span-padding; ++i)
-    {
-        if (scan.ranges[i] > max_dist)
-        {
-            max_dist = scan.ranges[i];
-            max_dist_dir = i;
-        }
-        else if (scan.ranges[i] < min_dist && scan.ranges[i] > 0.1)
-        {
-            min_dist = scan.ranges[i];
-            min_dist_dir = i;
-        }
-        if (i < (right+center)/2)
-        {
-            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
-                right_clear = false;
-        }
-        else if (i > (left+center)/2)
-        {
-            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
-            {
-                left_clear = false;
-            }
-        }
-        else
-        {
-            if (scan.ranges[i] < min_dist_from_wall && scan.ranges[i] > 0.1)
-            {
-                front_clear = false;
-                cout << scan.ranges[i] << endl;
-            }
-            if (scan.ranges[i] > max_dist_front)
-            {
-                max_dist_front = scan.ranges[i];
-                max_dist_front_dir = i;
-            }
-        }
-    }
-}*/
-
-bool Robot::computeTrajectoryToExit()
-{
-//    bool arriveCenter = false;                        // not on the center line
-//	bool arriveExit = false;                          // not arrived at the exit
-//	vtheta = 0;
-//    if (scan.range[B] > 0.65 || arriveCenter = false)  // not arrived at the exit
-//    {
-//		if (scan.range[B]-scan.range[A]>0.1)          // the exit is at the right side
-//		{
-//			vx = 1.5;
-//		    vy = 0;
-//		}
-//		elseif (scan.range[B]-scan.range[A]<-0.1)     // the exit is at the left side
-//		{
-//			vx = -1.5;
-//		    vy = 0;
-//		}
-//		else
-//		{
-//			vx = 0;
-//			vy = 1.5;
-//			arriveCenter = true;
-//			float error = scan.range[B]-scan.range[A];   // error during driving through the center line
-//			if (error > 0.5)                          // the robot away from the center line
-//			{
-//				arriveCenter = false;
-//			}
-//		}
-//	}
-//	else
-//	{
-//		vx = 0;
-//		vy = 0;
-//		arriveExit = true;
-//	}
-//	return arriveExit;
-    // @Muliang
-
-}
-
-// OLD FUNCTIONS
-//int robot::locateExit()
-//{
-//    bool found = false;
-//    float maxSep = 0;
-//    int foundAt = -1;
-//    for (int i = 0; i < scan.ranges.size()-1; ++i)
-//    {
-//        if (fabs(scan.ranges[i]-scan.ranges[i+1]) > maxSep)
-//        {
-//            maxSep = fabs(scan.ranges[i]-scan.ranges[i+1]);
-//            foundAt = i;
-//        }
-//    }
-//    cout << "Exit Located at " << foundAt << "Max sep" << maxSep << endl;
-//    return foundAt;
-//}
-
-
-//void robot::faceExit(int locIndex)
-//{
-//    if (io.readLaserData(scan))
-//    {
-//        dist_center = scan.ranges[center];
-//        dist_right = scan.ranges[right];
-//        dist_left = scan.ranges[left];
-//    }
-//    while(abs(locateExit()-center) > 5)
-//    {
-//        io.sendBaseReference(0,0,maxTrans);
-//        if (io.readLaserData(scan))
-//        {
-//            dist_center = scan.ranges[center];
-//            dist_right = scan.ranges[right];
-//            dist_left = scan.ranges[left];
-//        }
-//        r.sleep();
-//    }
-//    return;
-//}
-
-
-//void robot::smoothen()
-//{
-//    int smoothing[11] = {0.1,0.2,0.3,0.4,0.5,0.6,0.5,0.4,0.3,0.2,0.1};
-//    for (int i = 0; i < scan_span-2*padding; ++i)
-//    {
-//        distance[i] = 0;
-//        for (int j = 0; j < sizeof(smoothing); ++j)
-//        {
-//            distance[i] = smoothing[j]*distance[i+j];
-//        }
-//        distance[i] /= 3.6;
-//    }
-//}
 
 #endif
