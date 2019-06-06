@@ -18,27 +18,41 @@
 #define MAX_ROT             0.5
 #define MAX_TRANS           0.25
 
-void cabinet_order()
-{
-        int myint;
-        vector<int> cabinet_number;
-        cout << "Please enter the order of the cabinets (enter 1000 to end):\n";
-        do {
-    		cin >> myint;
-    		cabinet_number.push_back (myint);
-        } while (myint != 1000);
-    	cabinet_number.pop_back();
-        cout << int(cabinet_number.size()) << " cabinets will be reached.\n";
-}
 
-int main()
+int main(int argc, char *argv[])
 {
     // cabinet order
     
     // Setup
     Performance specs(MIN_PERMIT_DIST,DIST_COMPARE_TOL,CORNER_COMPARE_TOL,ANGLE_COMPARE_TOL,
                       PADDING,AV_RANGE,SIDE_RANGE,MIN_RANGE,HEARTBEAT,MAX_TRANS,MAX_ROT);
-    Robot pico(specs,STARTUP,cabinet_number);
+    Robot pico(specs,STARTUP);
+
+    //Read Cabinet List
+    if (argc < 2)
+    {
+        pico.log("No inputs provided. Using default list: 0 1 2 3");
+        pico.io.speak("No inputs provided. Using default list: 0 1 2 3");
+        pico.cabinet_list.push_back(0);
+        pico.cabinet_list.push_back(1);
+        pico.cabinet_list.push_back(2);
+        pico.cabinet_list.push_back(3);
+    }
+    else
+    {
+        string text = "I will visit cabinets ";
+        for (int i = 1; i < argc; ++i)
+        {
+            pico.cabinet_list.push_back(int(argv[i][0])-'0');
+            if (i == argc-1 && i != 2)
+                text += ("and ");
+            text += to_string(pico.cabinet_list.back()) + " ";
+        }
+        pico.log(text);
+        pico.io.speak(text);
+        sleep(3);
+    }
+
     int loss_count = 0;
     while(pico.io.ok())
     {
