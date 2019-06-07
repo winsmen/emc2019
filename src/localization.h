@@ -62,13 +62,20 @@ void localization()
         j--;
         polar2cart(World.convex_corners.j.d,angle1,corner_x4_measured,corner_y4_measured);
         double distance_corner34_measured=distance(corner_x3_measured,corner_y3_measured,corner_x4_measured,corner_y4_measured);
+        int L=j;
         if (j<=0){
             cout<<"Corner 4 cannot be found"<<endl;
             break;
         }
     }
+    if(R<World.convex_corners.size().d && L>0){
     x_robot=corner_x1-sin(angle1)*corner.R.d;
-    y_robot=corner_y1-cos(angle1)*corner.R.d; 
+    y_robot=corner_y1-cos(angle1)*corner.R.d;
+    }
+    else {
+        cout << "PICO cannot localize" << endl;
+    }
+        
 }
 
 #endif // LOCALIZATION_H
