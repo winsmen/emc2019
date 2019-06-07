@@ -1,0 +1,11 @@
+double vx;
+double vy;
+double ang_to_center;
+double alpha;
+
+double heading_angle(vx,vy)
+{
+  ang_to_center = atan(vy/vx)/ang_inc;
+  alpha = center_index + ang_to_center;
+  return alpha;
+}
