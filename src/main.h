@@ -18,6 +18,7 @@
 #include "measurement.h"
 #include "mapping.h"
 #include "planning.h"
+#include "actuation.h"
 
 #define LEFT        1
 #define RIGHT       2
@@ -73,6 +74,8 @@ public:
     Performance specs;
     Measurement *sense;
     Mapping *map;
+    Planning *planner;
+    Actuation *actuator;
     World world;
     vector<int> cabinet_list;
 
@@ -179,6 +182,10 @@ Robot::Robot(Performance s, sys_state state=STARTUP)
     sense = new Measurement(&io,&scan,&odom,&world,specs);
     log("Initialising Mapping Module");
     map = new Mapping(&scan,&odom,&world,specs);
+    log("Initialising Planning Module");
+    planner = new Planning(&world,specs);
+    log("Initialising Actuation Module");
+    actuator = new Actuation(&io,&world,specs,sense);
     log("Pico State: STARTUP");
     io.speak("Pico ready");
     cabinet_list.clear();
@@ -199,7 +206,7 @@ int Robot::plan()
     {
     case STARTUP:
         state = SCAN_FOR_EXIT;
-        start_angle = world.angle;
+        start_angle = world.theta;
         theta = start_angle + (2*M_PI-4);
         if (theta > M_PI)
             theta -= 2*M_PI;
@@ -221,8 +228,8 @@ int Robot::plan()
             break;
         }
         // Sweep complete
-        cout << "Current angle: " << world.angle << " Destination Angle: " << theta << endl;
-        if (fabs(world.angle - theta) < angle_compare_tol)
+        cout << "Current angle: " << world.theta << " Destination Angle: " << theta << endl;
+        if (fabs(world.theta - theta) < angle_compare_tol)
         {
             ++scan_count;
             if (scan_count > 4)
@@ -253,7 +260,7 @@ int Robot::plan()
             log(text);
             vx = 0;
             state = SCAN_FOR_EXIT;
-            start_angle = world.angle;
+            start_angle = world.theta;
             theta = start_angle + (2*M_PI-4);
             if (theta > M_PI)
                 theta -= 2*M_PI;
@@ -494,7 +501,7 @@ cout << vx << " " << vy << endl;
                 if (scan.ranges[i] < (min_dist_from_wall)/cos((i-world.center.i)*ang_inc) && scan.ranges[i] > 0.01)
                 {
                     state = CORNER;
-                    start_angle = world.angle;
+                    start_angle = world.theta;
                     break;
                 }
             }
@@ -537,7 +544,7 @@ cout << vx << " " << vy << endl;
                 if (scan.ranges[i] < (min_dist_from_wall)/cos((i-world.center.i)*ang_inc) && scan.ranges[i] > 0.01)
                 {
                     state = CORNER;
-                    start_angle = world.angle;
+                    start_angle = world.theta;
                     break;
                 }
             }
@@ -552,7 +559,7 @@ cout << vx << " " << vy << endl;
             double end_angle = start_angle+(M_PI/2);
             if (end_angle > M_PI)
                 end_angle -= 2*M_PI;
-            if (fabs(world.angle-end_angle) > angle_compare_tol)
+            if (fabs(world.theta-end_angle) > angle_compare_tol)
                vtheta = maxRot;
             else
             {
@@ -567,7 +574,7 @@ cout << vx << " " << vy << endl;
             double end_angle = start_angle-(M_PI/2);
             if (end_angle < -M_PI)
                 end_angle += 2*M_PI;
-            if (fabs(world.angle-end_angle) > angle_compare_tol)
+            if (fabs(world.theta-end_angle) > angle_compare_tol)
                vtheta = -maxRot;
             else
             {

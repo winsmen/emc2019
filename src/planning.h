@@ -14,13 +14,13 @@ class Planning
     World &world;
     ofstream mapping_log;
 public:
-    Planning(World *w);
+    Planning(World *w, const Performance specs);
     ~Planning();
     void plan();
     void log(string text);
 };
 
-Planning::Planning(World *w) : world(*w)
+Planning::Planning(World *w, const Performance specs) : world(*w)
 {
     mapping_log.open("../planning_log.txt", ios::out | ios::trunc);
     time_t now = time(0);

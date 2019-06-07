@@ -40,6 +40,7 @@ public:
                 const Performance specs);
     ~Measurement();
     int measure();
+    int sectorClear(int i);
 };
 
 
@@ -95,7 +96,7 @@ int Measurement::measure()
     else
         ret = 0;
     if (io.readOdometryData(odom))
-        world.angle = odom.a;
+        world.theta = odom.a;
     else
         ret -= 2;
     log(to_string(world.center.d)+','+to_string(world.right.d)+','+to_string(world.left.d)+','+
@@ -145,6 +146,29 @@ void Measurement::getMaxMinDist()
             }
         }
     }
+}
+
+
+int Measurement::sectorClear(int i = 499)
+{
+    /* Return values:
+     * 0 -> Not clear, object < min_permit_dist
+     * 1 -> Clear
+     * 2 -> Caution, object < 2*min_permit_dist
+     * 3 -> Out of vision range_error
+     */
+    if (i < padding+av_range || i > scan_span-padding-av_range)
+        return 3;
+    for (int j = 0; j < side_range; ++j)
+    {
+        if (scan.ranges[i+j] < min_permit_dist/cos(j*ang_inc) ||
+                scan.ranges[i-j] < min_permit_dist/cos(j*ang_inc))
+            return 0;
+        if (scan.ranges[i+j] < 2*min_permit_dist/cos(j*ang_inc) ||
+                scan.ranges[i-j] < 2*min_permit_dist/cos(j*ang_inc))
+            return 2;
+    }
+    return 1;
 }
 
 void Measurement::log(string text)

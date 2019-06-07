@@ -68,8 +68,8 @@ struct Line {
 
 struct World
 {
+    //Environment Variables
     LRFpoint center, right, left;
-    double angle;
     LRFpoint farthest, nearest;
     bool front_clear,right_clear,left_clear;
     vector<Exit> exits;
@@ -80,6 +80,13 @@ struct World
     vector<Line> walls;
     typedef vector<Line> Cabinet;
     vector<Cabinet> cabinets;
+
+    //Robot Variables
+    double des_vx, des_vy, des_vtheta;
+    double vx, vy, vtheta;
+    double dex_x,dex_y,des_theta;
+    double x,y,theta;
+    double off_x, off_y, off_theta;
 
     World();
     ~World();
@@ -100,13 +107,17 @@ World::World()
     right.assignPoint(-1,-1);
     left.assignPoint(-1,-1);
 //cout << 2 << endl;
-    angle = -1;
+    theta = -1;
     farthest.assignPoint(-1,-1);
     nearest.assignPoint(-1,-1);
 //cout << 3<< endl;
     front_clear = false;
     right_clear = false;
     left_clear = false;
+
+    des_vtheta = des_vx = des_vy = 0;
+    vtheta = vx = vy = 0;
+    off_theta = off_x = off_y = 0;
 }
 
 World::~World()

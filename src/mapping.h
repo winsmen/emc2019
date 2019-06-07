@@ -15,7 +15,7 @@
 using namespace std;
 
 #ifndef MAPPING_LOG_FLAG
-#define MAPPING_LOG_FLAG    3
+#define MAPPING_LOG_FLAG    1
 #endif
 
 using namespace cv;
