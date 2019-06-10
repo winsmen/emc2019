@@ -18,7 +18,10 @@ using namespace std;
 #define MAPPING_LOG_FLAG    1
 #endif
 
-#define WINDOW_SIZE         600
+#define WINDOW_SIZE         300
+#define PPM                 70
+#define MAX_X               6.4
+#define MAX_Y               6.7
 
 using namespace cv;
 using namespace std;
@@ -44,8 +47,7 @@ class Mapping
 
     //Mapped Variables
     World &world;
-    vector<double> cart_av_x;
-    vector<double> cart_av_y;
+    vector<CartPoint> cart_av;
 public:
     Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs);
     ~Mapping();
@@ -89,8 +91,7 @@ int Mapping::identify()
     world.exits.clear();
     world.dist_smooth.clear();
     av.clear();
-    cart_av_x.clear();
-    cart_av_y.clear();
+    cart_av.clear();
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
         double dist_av = pow((av_range+1),mult)*scan.ranges[i];
@@ -103,14 +104,12 @@ int Mapping::identify()
             polar2cart(scan.ranges[i+j],(i+j)*-ang_inc+2,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
-            cart_av_x.push_back(x);
-            cart_av_y.push_back(y);
+            cart_av.push_back(CartPoint(x,y));
             av.push_back(0);
             polar2cart(scan.ranges[i-j],(i-j)*-ang_inc+2,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
-            cart_av_x.push_back(x);
-            cart_av_y.push_back(y);
+            cart_av.push_back(CartPoint(x,y));
             av.push_back(0);
             den += 2*pow(j,mult);
             //        polar2cart(dist_av,i*-ang_inc,av_x,av_y);
@@ -121,8 +120,7 @@ int Mapping::identify()
         av_x /= den;
         av_y /= den;
         dist_av /= den;
-        cart_av_x.push_back(av_x);
-        cart_av_y.push_back(av_y);
+        cart_av.push_back(CartPoint(av_x,av_y));
         av.push_back(1);
         world.dist_smooth.push_back(LRFpoint(dist_av,i));
         if (distance(av_x,av_y,x,y) > 20*corner_compare_tol)
@@ -153,7 +151,7 @@ int Mapping::identify()
             int midpoint_ind = (world.convex_corners[i].i + world.convex_corners[i+1].i)/2;
             if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.3 && scan.ranges[midpoint_ind] - midpoint_dist > 0.5)
             {
-                world.exits.push_back(Exit(world.convex_corners[i],world.convex_corners[i+1]));
+                world.exits.push_back(Exit(world.convex_corners[i+1],world.convex_corners[i]));
                 ++i;
             }
             log("Distance between concave corners " + to_string(i) + ": " + to_string(distance(x1,y1,x2,y2)));
@@ -255,24 +253,25 @@ void Mapping::displayMap()
     double x_c = WINDOW_SIZE/2.0;
     double y_c = WINDOW_SIZE/2.0;
     double x,y;
+    int n_points;
 //    for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
 //    {
 //        polar2cart(scan.ranges[i]*display_scale,(i*-ang_inc)+2,x,y,x_c,y_c);
 //        circle(frame,Point(x,y),1,Scalar(180,180,180),1,8);
 //    }
-    for (int i = 0; i < cart_av_x.size(); ++i)
+    for (int i = 0; i < cart_av.size(); ++i)
     {
         if (av[i] == 1)
-            ;//circle(frame,Point(cart_av_x[i]*display_scale+x_c,cart_av_y[i]*display_scale+y_c),1,Scalar(255,0,0),1,8);
+            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(255,0,100),1,8);
         else
-            circle(frame,Point(cart_av_x[i]*display_scale+x_c,cart_av_y[i]*display_scale+y_c),1,Scalar(0,255,0),1,8);
+            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(0,255,0),1,8);
     }
-    int n_points = world.dist_smooth.size();
-    for (int i = 0; i < n_points; ++i)
-    {
-        polar2cart(world.dist_smooth[i].d*display_scale,(world.dist_smooth[i].i*-ang_inc)+2,x,y,x_c,y_c);
-        circle(frame,Point(x,y),1,Scalar(255,0,100),1,8);
-    }
+//    n_points = world.dist_smooth.size();
+//    for (int i = 0; i < n_points; ++i)
+//    {
+//        polar2cart(world.dist_smooth[i].d*display_scale,(world.dist_smooth[i].i*-ang_inc)+2,x,y,x_c,y_c);
+//        circle(frame,Point(x,y),1,Scalar(255,0,100),1,8);
+//    }
     n_points = world.concave_corners.size();
     for (int i = 0; i < n_points; ++i)
     {
@@ -298,7 +297,7 @@ void Mapping::displayMap()
         polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+2,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
     }
-
+    flip(frame,frame,0);
     imshow("Visualization",frame);
     waitKey(25);
 }
@@ -358,29 +357,34 @@ void Mapping::readMap()
 
 void Mapping::drawGlobalMap()
 {
-    int pixels_per_m = 50;
-    float max_x = 6.4;
-    float max_y = 6.7;
-    global_map= Mat::zeros(max_x*pixels_per_m,max_y*pixels_per_m,CV_8UC3);
+    double x,y;
+    global_map= Mat::zeros(MAX_X*PPM,MAX_Y*PPM,CV_8UC3);
 
     for (int i = 0; i < world.walls.size(); ++i)
     {
-        Point p1(world.walls[i].p1.x*pixels_per_m,world.walls[i].p1.y*pixels_per_m);
-        Point p2(world.walls[i].p2.x*pixels_per_m,world.walls[i].p2.y*pixels_per_m);
+        Point p1(world.walls[i].p1.x*PPM,world.walls[i].p1.y*PPM);
+        Point p2(world.walls[i].p2.x*PPM,world.walls[i].p2.y*PPM);
         line(global_map,p1,p2,Scalar(255,255,255),2,8);
     }
     for (int i = 0; i < world.cabinets.size(); ++i)
     {
         for (int j = 0; j < world.cabinets[i].sides.size(); ++j)
         {
-            Point p1(world.cabinets[i].sides[j].p1.x*pixels_per_m,
-                     world.cabinets[i].sides[j].p1.y*pixels_per_m);
-            Point p2(world.cabinets[i].sides[j].p2.x*pixels_per_m,
-                     world.cabinets[i].sides[j].p2.y*pixels_per_m);
+            Point p1(world.cabinets[i].sides[j].p1.x*PPM,
+                     world.cabinets[i].sides[j].p1.y*PPM);
+            Point p2(world.cabinets[i].sides[j].p2.x*PPM,
+                     world.cabinets[i].sides[j].p2.y*PPM);
             line(global_map,p1,p2,Scalar(255,255,255),2,8);
         }
     }
-    circle(global_map,Point(world.x*pixels_per_m,world.y*pixels_per_m),10,Scalar(0,255,0),2,8);
+    circle(global_map,Point(world.x*PPM,world.y*PPM),10,Scalar(0,255,0),2,8);
+
+    for (int i = padding; i < scan_span-padding; ++i)
+    {
+        polar2cart(scan.ranges[i],i*-ang_inc+2,x,y,world.x,world.y);
+        circle(global_map,Point(x*PPM,y*PPM),1,Scalar(0,255,0),1,8);
+    }
+
     Mat flip_im;
     flip(global_map,flip_im,0);
     imshow("Global Map",flip_im);

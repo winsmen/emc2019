@@ -103,7 +103,7 @@ struct World
     //Robot Variables
     double des_vx, des_vy, des_vtheta;
     double vx, vy, vtheta;
-    double dex_x,dex_y,des_theta;
+    double des_x,des_y,des_theta;
     double x,y,theta;
     double off_x, off_y, off_theta;
 
@@ -183,7 +183,7 @@ string to_string(const T& n)
 void polar2cart(double r,double theta, double &x,double &y, double x_off = 0, double y_off = 0)
 {
     x = x_off + r*sin(theta);
-    y = y_off - r*cos(theta);
+    y = y_off + r*cos(theta);
 }
 
 inline double distance(double x1, double y1, double x2, double y2)

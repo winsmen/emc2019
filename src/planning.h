@@ -90,14 +90,34 @@ inline sys_state Planning::startup(sys_state s)
 
 inline sys_state Planning::localize()
 {
+    // Left Edge - Point 22 - x = 5.1, y = 4.4
+    // Right Edge - Point 17 - x = 5.9, y = 4.4
+    double x_diff,y_diff;
+    double Rexit_x,Rexit_y,Lexit_x,Lexit_y;
     for (int i = 0; i < world.exits.size(); ++i)
     {
         if (world.exits[i].center.i > (world.right.i+world.center.i)/3 &&
                 world.exits[i].center.i < (world.left.i+world.center.i)*2.0/3.0)
         {
-
+            polar2cart(world.exits[i].leftEdge.d,world.exits[i].leftEdge.i*-sense.getAngInc()+2,Lexit_x,Lexit_y);
+            polar2cart(world.exits[i].rightEdge.d,world.exits[i].rightEdge.i*-sense.getAngInc()+2,Rexit_x,Rexit_y);
+            x_diff = (world.points[17].x-Rexit_x + world.points[22].x-Lexit_x)/2;
+            y_diff = (world.points[17].y-Rexit_y + world.points[22].y-Lexit_y)/2;
         }
     }
+    log("Number of exits: " + to_string(world.exits.size()));
+    log("x_diff: " + to_string(x_diff));
+    log("y_diff: " + to_string(y_diff));
+    log("Lexit_x: " + to_string(Lexit_x) + " Rexit_x" + to_string(Rexit_x));
+    log("Lexit_y: " + to_string(Lexit_y) + " Rexit_y" + to_string(Rexit_y));
+    log("Left Exit Corner - x: " + to_string(world.points[22].x) + " y: " + to_string(world.points[22].y));
+    log("Right Exit Corner - x: " + to_string(world.points[17].x) + " y: " + to_string(world.points[17].y));
+    world.x = x_diff;
+    world.y = y_diff;
+    world.theta = 0;
+    world.off_x = 0;
+    world.off_y = 0;
+    world.off_theta = 0;
     return STOP;
 }
 

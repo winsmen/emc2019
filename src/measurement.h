@@ -42,6 +42,7 @@ public:
     int measure();
     int sectorClear(int i);
     double alignedToWall(int side);
+    double getAngInc();
 };
 
 
@@ -221,6 +222,11 @@ double Measurement::alignedToWall(int side = RIGHT)
     }
     cout << diff << " " << count << endl;
     return diff/count;
+}
+
+double Measurement::getAngInc()
+{
+    return ang_inc;
 }
 
 void Measurement::log(string text)

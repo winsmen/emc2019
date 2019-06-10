@@ -86,7 +86,10 @@ int main(int argc, char *argv[])
 
         pico.r.sleep();
 //        if (pico.state == STOP)
-//            break;*/
+//        {
+//            pico.printState();
+//            break;
+//        }
         loss_count = 0;
     }
     //sleep(10);
