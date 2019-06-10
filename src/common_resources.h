@@ -6,11 +6,16 @@
 #include <fstream>
 #include <cmath>
 
+#define RIGHT   0
+#define FRONT   1
+#define LEFT    2
+
 using namespace std;
 
 struct LRFpoint;
 struct CartPoint;
 struct Line;
+struct Cabinet;
 struct World;
 struct Exit;
 struct Preformance;
@@ -19,6 +24,14 @@ string to_string(const T &n);
 void polar2cart(double r, double theta, double &x, double &y, double x_off, double y_off);
 //double distance(LRFpoint p1, LRFpoint p2);
 inline double distance(double x1, double y1, double x2, double y2);
+
+
+enum sys_state
+{
+    STARTUP,
+    FIRST_LOCALIZATION,
+    STOP
+};
 
 
 struct LRFpoint
@@ -58,11 +71,18 @@ struct CartPoint {
 
 
 struct Line {
-    int p1;
-    int p2;
-    Line(int p1_, int p2_ ): p1(p1_), p2(p2_)
+    CartPoint p1,p2;
+    Line(CartPoint p1_, CartPoint p2_ ): p1(p1_), p2(p2_)
     {
     }
+};
+
+struct Cabinet {
+    typedef vector<Line> Lines;
+    Lines sides;
+    CartPoint front;
+    Cabinet(Lines sides_, CartPoint front_) : sides(sides_), front(front_)
+    {}
 };
 
 
@@ -78,7 +98,6 @@ struct World
     vector<LRFpoint> dist_smooth;
     vector<CartPoint> points;
     vector<Line> walls;
-    typedef vector<Line> Cabinet;
     vector<Cabinet> cabinets;
 
     //Robot Variables
@@ -95,8 +114,11 @@ struct World
 
 struct Exit
 {
-    LRFpoint leftEdge,rightEdge;
-    Exit(LRFpoint l, LRFpoint r) : leftEdge(l), rightEdge(r) {}
+    LRFpoint leftEdge,rightEdge,center;
+    Exit(LRFpoint l, LRFpoint r) : leftEdge(l), rightEdge(r)
+    {
+        center.assignPoint((l.d+r.d)/2,(l.i+r.i)/2);
+    }
 };
 
 
@@ -118,6 +140,7 @@ World::World()
     des_vtheta = des_vx = des_vy = 0;
     vtheta = vx = vy = 0;
     off_theta = off_x = off_y = 0;
+    x = y = 0;
 }
 
 World::~World()
@@ -137,13 +160,13 @@ struct Performance
     const int side_range;
     const double min_range;
     const int heartbeat;
-    const double maxRot,maxTrans;
+    const double max_rot,max_trans;
 
     Performance(float mpd, float dct, float cct, float act, int p, int avr, int sr, float mr,
                 int hb, double maxR, double maxT)
         : min_permit_dist(mpd), dist_compare_tol(dct), corner_compare_tol(cct),
           angle_compare_tol(act), padding(p), av_range(avr), side_range(sr),
-          min_range(mr), heartbeat(hb), maxRot(maxR), maxTrans(maxT)
+          min_range(mr), heartbeat(hb), max_rot(maxR), max_trans(maxT)
     {}
 };
 

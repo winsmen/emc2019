@@ -35,9 +35,9 @@ public:
 
 Actuation::Actuation(emc::IO *io, World *w, const Performance s, Measurement *m)
     : io(*io), world(*w), m(*m), min_permit_dist(s.min_permit_dist),
-      dist_compare_tol(s.dist_compare_tol), max_rot(s.maxRot), max_trans(s.maxTrans)
+      dist_compare_tol(s.dist_compare_tol), max_rot(s.max_rot), max_trans(s.max_trans)
 {
-    act_log.open("../actuation_log.txt", ios::out | ios::trunc);
+    act_log.open("../logs/actuation_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Measurment Log: " + string(ctime(&now)));
 }
@@ -68,12 +68,15 @@ void Actuation::actuate()
         max_trans_ = 0;
     else if (forward_clear == 2)
         max_trans_ /= 2;
-    log("sector clear: " + to_string(i));
+    //log("sector clear: " + to_string(i));
 
     // Set Rotational Velocity
     //Turn to face heading direction if no theta velocity is supplied
     if (world.des_vtheta == 0)
+    {
         world.des_vtheta = world.des_vy/max_trans_*max_rot_;
+        world.vtheta = 0;
+    }
     //Accelerate/Decelerate if desired and actual theta velocities are unequal
     if (world.des_vtheta-world.vtheta > 0)
         world.vtheta += ACC_ROT;
@@ -118,6 +121,7 @@ void Actuation::actuate()
     else if (world.vx < -max_trans_)
         world.vx = -max_trans_;
 
+    //log("Vtheta: " + to_string(world.vtheta));
     //Send computed values to base
     io.sendBaseReference(world.vx,world.vy,world.vtheta);
 }

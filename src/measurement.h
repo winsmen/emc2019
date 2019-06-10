@@ -41,6 +41,7 @@ public:
     ~Measurement();
     int measure();
     int sectorClear(int i);
+    double alignedToWall(int side);
 };
 
 
@@ -58,7 +59,7 @@ Measurement::Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *o
     this->world.center.assignPoint(scan->ranges[center_index],center_index);
     this->world.right.assignPoint(scan->ranges[right_index],right_index);
     this->world.left.assignPoint(scan->ranges[left_index],left_index);
-    measure_log.open("../measure_log.txt", ios::out | ios::trunc);
+    measure_log.open("../logs/measure_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Measurment Log: " + string(ctime(&now)));
     log("scan_span: " + to_string(scan_span));
@@ -169,6 +170,57 @@ int Measurement::sectorClear(int i = 499)
             return 2;
     }
     return 1;
+}
+
+
+double Measurement::alignedToWall(int side = RIGHT)
+{
+    int i = side==RIGHT?world.right.i:side==LEFT?world.left.i:world.center.i;
+//    double right_av = 0;
+//    for (int i = 0; i < 20; ++i)
+//    {
+//        right_av += scan.ranges[world.right.i+i] - (scan.ranges[world.right.i]/cos(i*ang_inc));
+//    }
+//    right_av /= 20;
+//    cout << "Right Average: " << right_av << endl;
+//    if (right_av > dist_compare_tol)
+//        vtheta = -maxRot;
+//    else if (right_av < -dist_compare_tol)
+//        vtheta = maxRot;
+//    else
+//    {
+//        vtheta = 0;
+//        state = FOLLOW_WALL;
+//    }
+    const double compare_length = 0.3; //Check for 0.5m length
+    int range = atan(compare_length/scan.ranges[i])/ang_inc;
+    double diff = 0;
+    int count = 0;
+    for(int j = 0; j < range; ++j)
+    {
+        if ((i+j) < scan_span)
+        {
+            if (scan.ranges[i+j] > min_range)
+            {
+                diff += fabs(scan.ranges[i+j] - scan.ranges[i]/cos(j*ang_inc));
+                count += 1;
+            }
+            else
+                cout << i+j << "found + " << scan.ranges[i+j] << endl;
+        }
+        if ((i-j) > 0)
+        {
+            if (scan.ranges[i-j] > min_range)
+            {
+                diff += fabs(scan.ranges[i-j] - scan.ranges[i]/cos(j*ang_inc));
+                count += 1;
+            }
+            else
+                cout << i+j << " found - " << scan.ranges[i+j] << endl;
+        }
+    }
+    cout << diff << " " << count << endl;
+    return diff/count;
 }
 
 void Measurement::log(string text)

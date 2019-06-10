@@ -18,6 +18,8 @@ using namespace std;
 #define MAPPING_LOG_FLAG    1
 #endif
 
+#define WINDOW_SIZE         600
+
 using namespace cv;
 using namespace std;
 
@@ -28,11 +30,13 @@ class Mapping
     emc::OdometryData &odom;
     const int padding;
     const int av_range;
+    const int side_range;
     int scan_span;
     double ang_inc;
     const double corner_compare_tol;
     const double min_range;
-    Mat frame;
+    const double min_permit_dist;
+    Mat frame,global_map;
     ofstream mapping_log;
     static const int display_scale = 80;
     std::ifstream map;
@@ -49,17 +53,19 @@ public:
     void simplifyClusters();
     void displayMap();
     void readMap();
+    void drawGlobalMap();
     void log(string text);
 };
 
 
 Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs)
-    : scan(*scan), odom(*odom), world(*world), map("../finalmap.json"), min_range(specs.min_range),
-      padding(specs.padding), av_range(specs.av_range), corner_compare_tol(specs.corner_compare_tol)
+    : scan(*scan), odom(*odom), world(*world), map("../src/finalmap.json"), min_range(specs.min_range),
+      padding(specs.padding), av_range(specs.av_range), corner_compare_tol(specs.corner_compare_tol),
+      side_range(specs.side_range), min_permit_dist(specs.min_permit_dist)
 {
     ang_inc = scan->angle_increment;
     scan_span = scan->ranges.size();
-    mapping_log.open("../mapping_log.txt", ios::out | ios::trunc);
+    mapping_log.open("../logs/mapping_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Mapping Log: " + string(ctime(&now)));
     readMap();
@@ -147,7 +153,7 @@ int Mapping::identify()
             int midpoint_ind = (world.convex_corners[i].i + world.convex_corners[i+1].i)/2;
             if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.3 && scan.ranges[midpoint_ind] - midpoint_dist > 0.5)
             {
-                world.exits.push_back(Exit(world.concave_corners[i],world.concave_corners[i+1]));
+                world.exits.push_back(Exit(world.convex_corners[i],world.convex_corners[i+1]));
                 ++i;
             }
             log("Distance between concave corners " + to_string(i) + ": " + to_string(distance(x1,y1,x2,y2)));
@@ -164,6 +170,7 @@ int Mapping::identify()
     // Cabinet Detection
 
     displayMap();
+    drawGlobalMap();
     //cout << 2 <<endl;
     return 0;
 }
@@ -244,10 +251,9 @@ void Mapping::simplifyClusters()
 
 void Mapping::displayMap()
 {
-    int frame_dim = 600;
-    frame = Mat::zeros(frame_dim,frame_dim,CV_8UC3);
-    double x_c = frame_dim/2.0;
-    double y_c = frame_dim/2.0;
+    frame = Mat::zeros(WINDOW_SIZE,WINDOW_SIZE,CV_8UC3);
+    double x_c = WINDOW_SIZE/2.0;
+    double y_c = WINDOW_SIZE/2.0;
     double x,y;
 //    for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
 //    {
@@ -279,6 +285,19 @@ void Mapping::displayMap()
         polar2cart(world.convex_corners[i].d*display_scale,(world.convex_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
         circle(frame,Point(x,y),5,Scalar(0,0,255),2,8);
     }
+    const double compare_length = 0.3; //Check for 0.5m length
+    int range_right = atan(compare_length/scan.ranges[world.right.i])/ang_inc;
+    int range_left = atan(compare_length/scan.ranges[world.left.i])/ang_inc;
+    for (int i = 0; i < range_right; ++i)
+    {
+        polar2cart(scan.ranges[world.right.i]/cos(i*ang_inc)*display_scale,(world.right.i+i)*-ang_inc+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
+    }
+    for (int i = 0; i < range_left; ++i)
+    {
+        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+2,x,y,x_c,y_c);
+        circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
+    }
 
     imshow("Visualization",frame);
     waitKey(25);
@@ -297,19 +316,78 @@ void Mapping::readMap()
 
     for (const auto& l : doc.at("walls") )
     {
-        world.walls.push_back(Line(l[0], l[1]));
+        CartPoint p1(world.points[l[0]].x,world.points[l[0]].y);
+        CartPoint p2(world.points[l[1]].x,world.points[l[1]].y);
+        world.walls.push_back(Line(p1, p2));
     }
 
     for (const auto& cab : doc.at("cabinets") )
     {
-        typedef vector<Line> Cabinet;
-        Cabinet cabinet;
+        double max_x = 0;
+        double max_y = 0;
+        double min_x = 100;
+        double min_y = 100;
+        vector<Line> sides;
         for (const auto& l : cab){
-            cabinet.push_back(Line(l[0], l[1]));
+            CartPoint p1(world.points[l[0]].x,world.points[l[0]].y);
+            CartPoint p2(world.points[l[1]].x,world.points[l[1]].y);
+            sides.push_back(Line(p1, p2));
+            max_x = max(max_x,p1.x);
+            max_x = max(max_x,p2.x);
+            max_y = max(max_y,p1.y);
+            max_y = max(max_y,p2.y);
+            min_x = min(min_x,p1.x);
+            min_x = min(min_x,p2.x);
+            min_y = min(min_y,p1.y);
+            min_y = min(min_y,p2.y);
         }
-        world.cabinets.push_back(cabinet);
+        CartPoint front((sides[0].p1.x + sides[0].p2.x)/2.0,
+                (sides[0].p1.y + sides[0].p2.y)/2.0);
+        if (front.x == max_x)
+            front.x += min_permit_dist;
+        else if (front.x == min_x)
+            front.x -= min_permit_dist;
+        else if (front.y == max_y)
+            front.y += min_permit_dist;
+        else if (front.y == min_y)
+            front.y -= min_permit_dist;
+
+        world.cabinets.push_back(Cabinet(sides,front));
     }
 }
+
+void Mapping::drawGlobalMap()
+{
+    int pixels_per_m = 50;
+    float max_x = 6.4;
+    float max_y = 6.7;
+    global_map= Mat::zeros(max_x*pixels_per_m,max_y*pixels_per_m,CV_8UC3);
+
+    for (int i = 0; i < world.walls.size(); ++i)
+    {
+        Point p1(world.walls[i].p1.x*pixels_per_m,world.walls[i].p1.y*pixels_per_m);
+        Point p2(world.walls[i].p2.x*pixels_per_m,world.walls[i].p2.y*pixels_per_m);
+        line(global_map,p1,p2,Scalar(255,255,255),2,8);
+    }
+    for (int i = 0; i < world.cabinets.size(); ++i)
+    {
+        for (int j = 0; j < world.cabinets[i].sides.size(); ++j)
+        {
+            Point p1(world.cabinets[i].sides[j].p1.x*pixels_per_m,
+                     world.cabinets[i].sides[j].p1.y*pixels_per_m);
+            Point p2(world.cabinets[i].sides[j].p2.x*pixels_per_m,
+                     world.cabinets[i].sides[j].p2.y*pixels_per_m);
+            line(global_map,p1,p2,Scalar(255,255,255),2,8);
+        }
+    }
+    circle(global_map,Point(world.x*pixels_per_m,world.y*pixels_per_m),10,Scalar(0,255,0),2,8);
+    Mat flip_im;
+    flip(global_map,flip_im,0);
+    imshow("Global Map",flip_im);
+    waitKey(25);
+    moveWindow("Global Map",0,WINDOW_SIZE+100);
+}
+
 
 void Mapping::log(string text)
 {

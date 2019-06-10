@@ -12,7 +12,7 @@
 #define ANGLE_COMPARE_TOL   0.1
 #define PADDING             15
 #define AV_RANGE            30
-#define SIDE_RANGE          20
+#define SIDE_RANGE          50
 #define MIN_RANGE           0.1
 #define HEARTBEAT           10
 #define MAX_ROT             1.2
@@ -78,15 +78,15 @@ int main(int argc, char *argv[])
         //break;
         //cout << 3 <<endl;
 #if PLAN_ENABLED
-        pico.planner->plan();
+        pico.setState(pico.planner->plan(pico.getState()));
 #endif
 #if PLAN_ENABLED && ACTUATE_ENABLED
         pico.actuator->actuate();
 #endif
 
-        //pico.r.sleep();
-        if (pico.state == STOP)
-            break;
+        pico.r.sleep();
+//        if (pico.state == STOP)
+//            break;*/
         loss_count = 0;
     }
     //sleep(10);
