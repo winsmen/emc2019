@@ -6,7 +6,7 @@
 #define PLAN_ENABLED        true
 #define ACTUATE_ENABLED     true
 
-#define MIN_PERMIT_DIST     0.6
+#define MIN_PERMIT_DIST     0.4
 #define DIST_COMPARE_TOL    0.01
 #define CORNER_COMPARE_TOL  0.08
 #define ANGLE_COMPARE_TOL   0.1
@@ -74,7 +74,10 @@ int main(int argc, char *argv[])
             continue;
         }
         //cout << 2;
-        pico.map->identify();
+        if (pico.world.x == -1 || pico.world.y == -1)
+            pico.map->identify();
+        else
+            pico.map->localise();
         //break;
         //cout << 3 <<endl;
 #if PLAN_ENABLED

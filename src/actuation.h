@@ -129,7 +129,7 @@ void Actuation::actuate()
 
 int Actuation::getHeading()
 {
-    return 499;
+    return world.center.i-atan2(world.des_vy,world.des_vx)/m.getAngInc();
 }
 
 #endif // ACTUATION

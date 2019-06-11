@@ -21,7 +21,7 @@ class Planning
     double max_rot,max_trans;
 
     sys_state startup(sys_state s);
-    sys_state localize();
+    sys_state localise();
     sys_state stop(sys_state s);
 
 public:
@@ -52,7 +52,7 @@ sys_state Planning::plan(sys_state s)
     case STARTUP:
         return startup(s);
     case FIRST_LOCALIZATION:
-        return localize();
+        return localise();
     case STOP:
         return stop(s);
     default:
@@ -80,7 +80,10 @@ inline sys_state Planning::startup(sys_state s)
     }
     log("exit in front: " + to_string(exit_in_front));
     if (exit_in_front && alignment_diff < dist_compare_tol)
+    {
+        world.des_vtheta = 0;
         return FIRST_LOCALIZATION;
+    }
     world.des_vtheta = -max_rot/2;
     world.des_vx = 0;
     world.des_vy = 0;
@@ -88,7 +91,7 @@ inline sys_state Planning::startup(sys_state s)
     return s;
 }
 
-inline sys_state Planning::localize()
+inline sys_state Planning::localise()
 {
     // Left Edge - Point 22 - x = 5.1, y = 4.4
     // Right Edge - Point 17 - x = 5.9, y = 4.4

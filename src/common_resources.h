@@ -67,6 +67,10 @@ struct CartPoint {
     CartPoint(double x_, double y_ ): x(x_), y(y_)
     {
     }
+    bool operator == (const CartPoint p1) const
+    {
+        return (x == p1.x && y == p1.y);
+    }
 };
 
 
@@ -139,8 +143,8 @@ World::World()
 
     des_vtheta = des_vx = des_vy = 0;
     vtheta = vx = vy = 0;
-    off_theta = off_x = off_y = 0;
-    x = y = 0;
+    off_theta = off_x = off_y = -1;
+    x = y = -1;
 }
 
 World::~World()
