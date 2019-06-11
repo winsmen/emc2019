@@ -25,6 +25,8 @@ class Measurement
     const int padding;
     const int av_range;
     const int min_range;
+    double min_angle;
+    double max_angle;
     const float min_permit_dist;
     ofstream measure_log;
 
@@ -43,6 +45,8 @@ public:
     int sectorClear(int i);
     double alignedToWall(int side);
     double getAngInc();
+    double getMinAngle();
+    double getMaxAngle();
 };
 
 
@@ -54,6 +58,8 @@ Measurement::Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *o
 {
     ang_inc = scan->angle_increment;
     scan_span = scan->ranges.size();
+    min_angle = scan->angle_min;
+    max_angle = scan->angle_max;
     int center_index = (scan_span-1)/2;
     int right_index = center_index - (M_PI/2)/ang_inc;
     int left_index = center_index + (M_PI/2)/ang_inc;
@@ -227,6 +233,16 @@ double Measurement::alignedToWall(int side = RIGHT)
 double Measurement::getAngInc()
 {
     return ang_inc;
+}
+
+double Measurement::getMinAngle()
+{
+    return min_angle;
+}
+
+double Measurement::getMaxAngle()
+{
+    return max_angle;
 }
 
 void Measurement::log(string text)

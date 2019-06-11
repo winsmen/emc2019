@@ -11,7 +11,7 @@
 #define ACTUATION_LOG_FLAG 3
 
 #define ACC_TRANS           0.005
-#define ACC_ROT             0.01
+#define ACC_ROT             0.04
 
 using namespace std;
 

@@ -45,6 +45,8 @@ class Mapping
     const double corner_compare_tol;
     const double min_range;
     const double min_permit_dist;
+    double min_angle;
+    double max_angle;
     Mat frame,global_map;
     ofstream mapping_log;
     static const int display_scale = 80;
@@ -77,6 +79,8 @@ Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, co
 {
     ang_inc = scan->angle_increment;
     scan_span = scan->ranges.size();
+    min_angle = scan->angle_min;
+    max_angle = scan->angle_max;
     mapping_log.open("../logs/mapping_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Mapping Log: " + string(ctime(&now)));
@@ -352,13 +356,13 @@ void Mapping::displayMap()
     n_points = world.concave_corners.size();
     for (int i = 0; i < n_points; ++i)
     {
-        polar2cart(world.concave_corners[i].d*display_scale,(world.concave_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
+        polar2cart(world.concave_corners[i].d*display_scale,(world.concave_corners[i].i*-ang_inc)+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),5,Scalar(255,0,0),2,8);
     }
     n_points = world.convex_corners.size();
     for (int i = 0; i < n_points; ++i)
     {
-        polar2cart(world.convex_corners[i].d*display_scale,(world.convex_corners[i].i*-ang_inc)+2,x,y,x_c,y_c);
+        polar2cart(world.convex_corners[i].d*display_scale,(world.convex_corners[i].i*-ang_inc)+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),5,Scalar(0,0,255),2,8);
     }
     const double compare_length = 0.3; //Check for 0.5m length

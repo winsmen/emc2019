@@ -19,6 +19,7 @@ class Planning
     ofstream planning_log;
     double dist_compare_tol;
     double max_rot,max_trans;
+    double min_angle,max_angle;
 
     sys_state startup(sys_state s);
     sys_state localise();
@@ -38,6 +39,8 @@ Planning::Planning(World *w, Measurement *s, const Performance specs) :
     planning_log.open("../logs/planning_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Planning Log: " + string(ctime(&now)));
+    min_angle = sense.getMinAngle();
+    max_angle = sense.getMaxAngle();
 }
 
 Planning::~Planning()
@@ -102,8 +105,8 @@ inline sys_state Planning::localise()
         if (world.exits[i].center.i > (world.right.i+world.center.i)/3 &&
                 world.exits[i].center.i < (world.left.i+world.center.i)*2.0/3.0)
         {
-            polar2cart(world.exits[i].leftEdge.d,world.exits[i].leftEdge.i*-sense.getAngInc()+2,Lexit_x,Lexit_y);
-            polar2cart(world.exits[i].rightEdge.d,world.exits[i].rightEdge.i*-sense.getAngInc()+2,Rexit_x,Rexit_y);
+            polar2cart(world.exits[i].leftEdge.d,world.exits[i].leftEdge.i*-sense.getAngInc()+max_angle,Lexit_x,Lexit_y);
+            polar2cart(world.exits[i].rightEdge.d,world.exits[i].rightEdge.i*-sense.getAngInc()+max_angle,Rexit_x,Rexit_y);
             x_diff = (world.points[17].x-Rexit_x + world.points[22].x-Lexit_x)/2;
             y_diff = (world.points[17].y-Rexit_y + world.points[22].y-Lexit_y)/2;
         }
