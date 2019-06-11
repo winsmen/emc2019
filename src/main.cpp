@@ -16,7 +16,7 @@
 #define MIN_RANGE           0.1
 #define HEARTBEAT           10
 #define MAX_ROT             1.2
-#define MAX_TRANS           0.5
+#define MAX_TRANS           0.3
 
 
 void readCabinetList(int argc, char *argv[]);
@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
             pico.io.speak(text);
             sleep(3);
         }
+        pico.planner->updateCabinetList(pico.cabinet_list);
     }
 
     int loss_count = 0;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[])
             continue;
         }
         //cout << 2;
-        if (pico.world.x == -1 || pico.world.y == -1)
+        if (pico.world.x == -1 || pico.world.y == -1) //world x and y values are -1 at program start till the first localization is performed
             pico.map->identify();
         else
             pico.map->localise();

@@ -16,7 +16,7 @@
 using namespace std;
 
 #ifndef MAPPING_LOG_FLAG
-#define MAPPING_LOG_FLAG    1
+#define MAPPING_LOG_FLAG    3
 #endif
 
 #define WINDOW_SIZE         300
@@ -69,6 +69,7 @@ public:
     void drawGlobalMap();
     void log(string text);
     void makeLocalGridmap(double dx, double dy, double dtheta, int step);
+    void captureImage(int num);
 };
 
 
@@ -84,6 +85,7 @@ Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, co
     mapping_log.open("../logs/mapping_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Mapping Log: " + string(ctime(&now)));
+    log("max_angle: " + to_string(max_angle) + " min angle: " + to_string(min_angle));
     readMap();
 }
 
@@ -92,6 +94,7 @@ Mapping::~Mapping()
 {
     log("End of Log");
     mapping_log.close();
+    destroyWindow("Visualization");
 }
 
 void Mapping::identify()
@@ -188,7 +191,7 @@ void Mapping::identify()
 
 void Mapping::localise()
 {
-    cout << "In Localise" << endl;
+
     double tempx,tempy,temptheta;
     tempx = world.x;
     tempy = world.y;
@@ -199,25 +202,26 @@ void Mapping::localise()
     min_dx = 0;
     min_dy = 0;
     min_dtheta = 0;
-//    auto start = chrono::steady_clock::now();
     for (double dx = -0.15; dx <= 0.15; dx+=MAP_RES)
     {
         world.x = tempx+dx;
-        for (double dy = -0.15; dy < 0.15; dy+=MAP_RES)
+        for (double dy = -0.15; dy <= 0.15; dy+=MAP_RES)
         {
             world.y = tempy+dy;
             for (double dtheta = -15*ang_inc; dtheta <= 15*ang_inc; dtheta+=ang_inc)
             {
-                world.theta = temptheta-dtheta;
-                makeLocalGridmap(world.x,world.y,world.theta,5);
+                world.theta = temptheta+dtheta;
+                makeLocalGridmap(world.x,world.y,world.theta,20);
                 cur_cost = 0;
                 for (int i = 0; i < MAP_X; ++i)
                 {
                     for (int j = 0; j < MAP_Y; ++j)
                     {
-                        cur_cost += (local_gridmap[j][i]-super_gridmap[j][i])*(local_gridmap[j][i]-super_gridmap[j][i]);
+                        if (local_gridmap[j][i] == 1)
+                            cur_cost += (local_gridmap[j][i]-global_gridmap[j][i])*(local_gridmap[j][i]-global_gridmap[j][i]);
                     }
                 }
+
                 if (cur_cost < min_cost)
                 {
                     min_dx = dx;
@@ -225,27 +229,12 @@ void Mapping::localise()
                     min_dtheta = dtheta;
                     min_cost = cur_cost;
                 }
-//                cout << "dx: " << dx << " dy: " << dy << " dtheta: " << dtheta << endl;
+                //cout << "dx: " << dx << " dy: " << dy << " dtheta: " << dtheta << " cur_cost: " << cur_cost << endl;
 //                sleep(1);
             }
         }
     }
-//    auto end = chrono::steady_clock::now();
-//    cout << "Elapsed time in nanoseconds : "
-//                    << chrono::duration_cast<chrono::nanoseconds>(end - start).count()
-//                    << " ns" << endl;
-
-//            cout << "Elapsed time in microseconds : "
-//                    << chrono::duration_cast<chrono::microseconds>(end - start).count()
-//                    << " µs" << endl;
-
-//            cout << "Elapsed time in milliseconds : "
-//                    << chrono::duration_cast<chrono::milliseconds>(end - start).count()
-//                    << " ms" << endl;
-
-//            cout << "Elapsed time in seconds : "
-//                    << chrono::duration_cast<chrono::seconds>(end - start).count()
-//                    << " sec" << endl;
+//    cout << "min_cost: " << min_cost << endl;
     world.x = tempx + min_dx;
     world.y = tempy + min_dy;
     world.theta = temptheta + min_dtheta;
@@ -375,8 +364,13 @@ void Mapping::displayMap()
     }
     for (int i = 0; i < range_left; ++i)
     {
-        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc++max_angle,x,y,x_c,y_c);
+        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
+    }
+    for (int i = 0; i < world.exits.size(); ++i)
+    {
+        polar2cart(world.exits[i].center.d*display_scale,(world.exits[i].center.i*-ang_inc)+max_angle,x,y,x_c,y_c);
+        circle(frame,Point(x,y),5,Scalar(255,0,255),2,8);
     }
     flip(frame,frame,0);
     imshow("Visualization",frame);
@@ -440,15 +434,13 @@ void Mapping::drawGlobalMap()
 {
     double x,y;
     global_map= Mat::zeros(MAX_Y*PPM,MAX_X*PPM,CV_8UC3);
+//    global_map= Mat::zeros(MAP_Y,MAP_X,CV_8UC3);
 
-//    fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
     for (int i = 0; i < world.walls.size(); ++i)
     {
         Point p1(world.walls[i].p1.x*PPM,world.walls[i].p1.y*PPM);
         Point p2(world.walls[i].p2.x*PPM,world.walls[i].p2.y*PPM);
         line(global_map,p1,p2,Scalar(255,255,255),2,8);
-//        global_gridmap[int(world.walls[i].p1.y/MAP_RES)][int(world.walls[i].p1.x/MAP_RES)] = 1;
-//        global_gridmap[int(world.walls[i].p2.y/MAP_RES)][int(world.walls[i].p2.x/MAP_RES)] = 1;
     }
     for (int i = 0; i < world.cabinets.size(); ++i)
     {
@@ -459,24 +451,32 @@ void Mapping::drawGlobalMap()
             Point p2(world.cabinets[i].sides[j].p2.x*PPM,
                      world.cabinets[i].sides[j].p2.y*PPM);
             line(global_map,p1,p2,Scalar(255,255,255),2,8);
-//            global_gridmap[int(world.cabinets[i].sides[j].p1.y/MAP_RES)][int(world.cabinets[i].sides[j].p1.x/MAP_RES)] = 1;
-//            global_gridmap[int(world.cabinets[i].sides[j].p2.y/MAP_RES)][int(world.cabinets[i].sides[j].p2.x/MAP_RES)] = 1;
         }
         circle(global_map,Point(world.cabinets[i].front.x*PPM,world.cabinets[i].front.y*PPM),2,Scalar(0,0,255),1,8);
     }
     circle(global_map,Point(world.x*PPM,world.y*PPM),10,Scalar(0,255,0),2,8);
+    line(global_map,Point(world.x*PPM,world.y*PPM),Point((world.x+0.2*sin(-world.theta))*PPM,(world.y+0.2*cos(-world.theta))*PPM),Scalar(0,0,255),1,8);
+
+//    for (int i = 0; i < MAP_X; ++i)
+//    {
+//        for (int j = 0; j < MAP_Y; ++j)
+//        {
+//            if (global_gridmap[j][i] == 1)
+//                circle(global_map,Point(i*MAX_X*PPM/MAP_X,j*MAX_Y*PPM/MAP_Y),1,Scalar(0,0,255),1,8);
+//        }
+//    }
 
     for (int i = padding; i < scan_span-padding; ++i)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+max_angle+world.theta,x,y,world.x,world.y);
+        polar2cart(scan.ranges[i],i*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
         circle(global_map,Point(x*PPM,y*PPM),1,Scalar(0,255,0),1,8);
+//        circle(global_map,Point((x*MAP_X)/MAX_X,(y*MAP_Y)/MAX_Y),1,Scalar(0,255,0),1,8);
     }
 
     Mat flip_im;
     flip(global_map,flip_im,0);
-    imshow("Global Map",flip_im);
+    imshow("Visualization",flip_im);
     waitKey(25);
-    moveWindow("Global Map",0,WINDOW_SIZE+100);
 }
 
 void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
@@ -487,24 +487,36 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
     // Convert all points (padding:step:scan_span-padding) to Cartesian Coordinates
     for (int i = padding; i < scan_span-padding; i += step)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+max_angle+dtheta,x,y,dx,dy);
+        polar2cart(scan.ranges[i],i*-ang_inc+max_angle-dtheta,x,y,dx,dy);
         points.push_back(CartPoint(x,y));
     }
     // Add points on 2D map
     fill_n(&local_gridmap[0][0],sizeof(local_gridmap)/sizeof(**local_gridmap),0);
+    fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
     for (int i = 0; i < points.size(); ++i)
     {
         int x_ = points[i].x/MAP_RES;
         int y_ = points[i].y/MAP_RES;
-        if (x_ > MAP_X-1)
+//        if (x_ > MAP_X-1)
+//        {
+//            x_ = MAP_X-1;
+//        }
+//        if (y_ > MAP_Y-1)
+//        {
+//            y_ = MAP_Y-1;
+//        }
+        if (x_ < MAP_X && y_ < MAP_Y)
         {
-            x_ = MAP_X-1;
+            local_gridmap[y_][x_] = 1;
+            for (int j = 0; j <=0; ++j)
+            {
+                for (int k = -0; k <= 0; ++k)
+                {
+                    if (y_+j > -1 && y_+j < MAP_Y && x_+k > -1 && x_+k < MAP_X)
+                        global_gridmap[y_+j][x_+k] = super_gridmap[y_+j][x_+k];
+                }
+            }
         }
-        if (y_ > MAP_Y-1)
-        {
-            y_ = MAP_Y-1;
-        }
-        local_gridmap[y_][x_] = 1;
 //        circle(temp,Point(x_,y_),1,Scalar(255,255,255),1,8);
     }
 //    for (int i = 0; i < MAP_X; ++i)
@@ -520,6 +532,25 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
 //    flip(temp,temp,0);
 //    imshow("temp",temp);
 //    waitKey(25);
+}
+
+
+void Mapping::captureImage(int num)
+{
+    Mat frame = Mat::zeros(WINDOW_SIZE,WINDOW_SIZE,CV_8UC3);
+    double x_c = WINDOW_SIZE/2.0;
+    double y_c = WINDOW_SIZE/2.0;
+    double x,y;
+    for (int i = 0; i < cart_av.size(); ++i)
+    {
+        if (av[i] == 1)
+            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(255,0,100),1,8);
+        else
+            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(0,255,0),1,8);
+    }
+    circle(frame,Point(x_c,y_c),4,Scalar(255,255,255),2,8);
+    flip(frame,frame,0);
+    imwrite("../captures/cab"+to_string(num)+".png",frame);
 }
 
 
@@ -612,3 +643,24 @@ for (int i = 0; i < MAP_Y; ++i)
 waitKey(25);
 
 */
+
+
+//  Timing
+
+//    auto start = chrono::steady_clock::now();
+//    auto end = chrono::steady_clock::now();
+//    cout << "Elapsed time in nanoseconds : "
+//                    << chrono::duration_cast<chrono::nanoseconds>(end - start).count()
+//                    << " ns" << endl;
+
+//            cout << "Elapsed time in microseconds : "
+//                    << chrono::duration_cast<chrono::microseconds>(end - start).count()
+//                    << " µs" << endl;
+
+//            cout << "Elapsed time in milliseconds : "
+//                    << chrono::duration_cast<chrono::milliseconds>(end - start).count()
+//                    << " ms" << endl;
+
+//            cout << "Elapsed time in seconds : "
+//                    << chrono::duration_cast<chrono::seconds>(end - start).count()
+//                    << " sec" << endl;

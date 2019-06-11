@@ -30,6 +30,9 @@ enum sys_state
 {
     STARTUP,
     FIRST_LOCALIZATION,
+    GET_NEXT_CABINET,
+    GO_TO_DESTINATION,
+    AT_CABINET,
     STOP
 };
 

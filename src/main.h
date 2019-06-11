@@ -129,7 +129,7 @@ Robot::Robot(Performance s, sys_state state=STARTUP)
     log("Initialising Mapping Module");
     map = new Mapping(&scan,&odom,&world,specs);
     log("Initialising Planning Module");
-    planner = new Planning(&world,sense,specs);
+    planner = new Planning(&io,&world,sense,map,specs);
     log("Initialising Actuation Module");
     actuator = new Actuation(&io,&world,specs,sense);
     log("Pico State: STARTUP");
@@ -178,15 +178,15 @@ void Robot::printState(sys_state s)
     case FIRST_LOCALIZATION:
         log("Pico State: FIRST_LOCALIZATION");
         break;
-//    case FACE_EXIT:
-//        log("Pico State: FACE_EXIT");
-//        break;
-//    case EXIT_UNDETECTABLE:
-//        log("Pico State: EXIT_UNDETECTABLE");
-//        break;
-//    case ORIENT_TO_EXIT_WALL:
-//        log("Pico State: ORIENT_TO_EXIT_WALL");
-//        break;
+    case GET_NEXT_CABINET:
+        log("Pico State: GET_NEXT_CABINET");
+        break;
+    case GO_TO_DESTINATION:
+        log("Pico State: GO_TO_DESTINATION");
+        break;
+    case AT_CABINET:
+        log("Pico State: AT_CABINET");
+        break;
 //    case DRIVE_TO_EXIT:
 //        log("Pico State: DRIVE_TO_EXIT");
 //        break;

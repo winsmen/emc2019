@@ -7,6 +7,7 @@
 
 #include "common_resources.h"
 #include "measurement.h"
+#include "mapping.h"
 
 #define PLANNING_LOG_FLAG 3
 
@@ -14,27 +15,39 @@ using namespace std;
 
 class Planning
 {
+    emc::IO &io;
     World &world;
     Measurement &sense;
+    Mapping &mapper;
     ofstream planning_log;
     double dist_compare_tol;
     double max_rot,max_trans;
     double min_angle,max_angle;
+    double min_permit_dist;
+    double ang_inc;
+    vector<int> cabinet_list;
+    int cab_num;
 
     sys_state startup(sys_state s);
     sys_state localise();
+    sys_state getNextCabinet();
+    sys_state goToDestination();
+    sys_state atCabinet();
     sys_state stop(sys_state s);
 
 public:
-    Planning(World *w, Measurement *s, const Performance specs);
+    Planning(emc::IO *io, World *w, Measurement *s, Mapping *m, const Performance specs);
     ~Planning();
     sys_state plan(sys_state s);
     void log(string text);
+    void updateCabinetList(vector<int> &cabinet_list);
 };
 
-Planning::Planning(World *w, Measurement *s, const Performance specs) :
-    world(*w), sense(*s), dist_compare_tol(specs.dist_compare_tol),
-    max_rot(specs.max_rot), max_trans(specs.max_trans)
+Planning::Planning(emc::IO *io, World *w, Measurement *s, Mapping *m, const Performance specs) :
+    world(*w), sense(*s), dist_compare_tol(specs.dist_compare_tol), ang_inc(s->getAngInc()),
+    max_rot(specs.max_rot), max_trans(specs.max_trans), min_permit_dist(specs.min_permit_dist),
+    io(*io), mapper(*m)
+
 {
     planning_log.open("../logs/planning_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
@@ -54,10 +67,22 @@ sys_state Planning::plan(sys_state s)
     {
     case STARTUP:
         return startup(s);
+
     case FIRST_LOCALIZATION:
         return localise();
+
+    case GET_NEXT_CABINET:
+        return getNextCabinet();
+
+    case GO_TO_DESTINATION:
+        return goToDestination();
+
+    case AT_CABINET:
+        return atCabinet();
+
     case STOP:
         return stop(s);
+
     default:
         break;
     }
@@ -82,12 +107,12 @@ inline sys_state Planning::startup(sys_state s)
         }
     }
     log("exit in front: " + to_string(exit_in_front));
-    if (exit_in_front && alignment_diff < 0.8*dist_compare_tol)
+    if (exit_in_front && alignment_diff < 0.8*dist_compare_tol) //add side conditions
     {
         world.des_vtheta = 0;
         return FIRST_LOCALIZATION;
     }
-    world.des_vtheta = -max_rot/2;
+    world.des_vtheta = -max_rot;
     world.des_vx = 0;
     world.des_vy = 0;
 
@@ -124,7 +149,53 @@ inline sys_state Planning::localise()
     world.off_x = 0;
     world.off_y = 0;
     world.off_theta = 0;
-    return STOP;
+    io.speak("Initial Localisation complete");
+    return GET_NEXT_CABINET;
+}
+
+inline sys_state Planning::getNextCabinet()
+{
+    if (cabinet_list.empty())
+    {
+        io.speak("No more cabinets to visit. Goodbye.");
+        log("End of Cabinet List");
+        sleep(4);
+        return STOP;
+    }
+    cab_num = cabinet_list[0];
+    cabinet_list.erase(cabinet_list.begin());
+    log("Next Cabinet number: " + to_string(cab_num) + " at x: " + to_string(world.cabinets[cab_num].front.x) +
+        " at y: " + to_string(world.cabinets[cab_num].front.y));
+    io.speak("Next Cabinet " + to_string(cab_num));
+    sleep(3);
+    return GO_TO_DESTINATION;
+}
+
+inline sys_state Planning::goToDestination()
+{
+    log("Path Planning");
+    // If reached destination
+    world.des_vtheta = 0;
+    world.des_vx = 0;
+    world.des_vy = 0;
+    world.vx = 0;
+    world.vy = 0;
+    world.vtheta = 0;
+    return AT_CABINET;
+}
+
+inline sys_state Planning::atCabinet()
+{
+    log("At cabinet: " + to_string(cab_num));
+    io.speak("Reached cabinet");
+    mapper.captureImage(cab_num);
+    world.des_vtheta = 0;
+    world.des_vx = 0;
+    world.des_vy = 0;
+    world.vx = 0;
+    world.vy = 0;
+    world.vtheta = 0;
+    return GET_NEXT_CABINET;
 }
 
 inline sys_state Planning::stop(sys_state s)
@@ -132,7 +203,15 @@ inline sys_state Planning::stop(sys_state s)
     world.des_vtheta = 0;
     world.des_vx = 0;
     world.des_vy = 0;
+    world.vx = 0;
+    world.vy = 0;
+    world.vtheta = 0;
     return STOP;
+}
+
+void Planning::updateCabinetList(vector<int> &cabinet_list)
+{
+    this->cabinet_list = cabinet_list;
 }
 
 void Planning::log(string text)
