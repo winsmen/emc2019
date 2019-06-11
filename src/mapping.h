@@ -115,12 +115,12 @@ void Mapping::identify()
         for (int j = 1; j <= av_range; ++j)
         {
             dist_av += pow(j,mult)*scan.ranges[i+j] + pow(j,mult)*scan.ranges[i-j];
-            polar2cart(scan.ranges[i+j],(i+j)*-ang_inc+2,x,y);
+            polar2cart(scan.ranges[i+j],(i+j)*-ang_inc+max_angle,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
             cart_av.push_back(CartPoint(x,y));
             av.push_back(0);
-            polar2cart(scan.ranges[i-j],(i-j)*-ang_inc+2,x,y);
+            polar2cart(scan.ranges[i-j],(i-j)*-ang_inc+max_angle,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
             cart_av.push_back(CartPoint(x,y));
@@ -370,12 +370,12 @@ void Mapping::displayMap()
     int range_left = atan(compare_length/scan.ranges[world.left.i])/ang_inc;
     for (int i = 0; i < range_right; ++i)
     {
-        polar2cart(scan.ranges[world.right.i]/cos(i*ang_inc)*display_scale,(world.right.i+i)*-ang_inc+2,x,y,x_c,y_c);
+        polar2cart(scan.ranges[world.right.i]/cos(i*ang_inc)*display_scale,(world.right.i+i)*-ang_inc+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
     }
     for (int i = 0; i < range_left; ++i)
     {
-        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+2,x,y,x_c,y_c);
+        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc++max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
     }
     flip(frame,frame,0);
@@ -468,7 +468,7 @@ void Mapping::drawGlobalMap()
 
     for (int i = padding; i < scan_span-padding; ++i)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+2+world.theta,x,y,world.x,world.y);
+        polar2cart(scan.ranges[i],i*-ang_inc+max_angle+world.theta,x,y,world.x,world.y);
         circle(global_map,Point(x*PPM,y*PPM),1,Scalar(0,255,0),1,8);
     }
 
@@ -487,7 +487,7 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
     // Convert all points (padding:step:scan_span-padding) to Cartesian Coordinates
     for (int i = padding; i < scan_span-padding; i += step)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+2+dtheta,x,y,dx,dy);
+        polar2cart(scan.ranges[i],i*-ang_inc+max_angle+dtheta,x,y,dx,dy);
         points.push_back(CartPoint(x,y));
     }
     // Add points on 2D map
