@@ -79,7 +79,7 @@ inline sys_state Planning::startup(sys_state s)
         }
     }
     log("exit in front: " + to_string(exit_in_front));
-    if (exit_in_front && alignment_diff < dist_compare_tol)
+    if (exit_in_front && alignment_diff < 0.8*dist_compare_tol)
     {
         world.des_vtheta = 0;
         return FIRST_LOCALIZATION;

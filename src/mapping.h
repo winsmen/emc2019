@@ -196,16 +196,16 @@ void Mapping::localise()
     min_dy = 0;
     min_dtheta = 0;
 //    auto start = chrono::steady_clock::now();
-    for (double dx = -0.1; dx <= 0.1; dx+=MAP_RES)
+    for (double dx = -0.15; dx <= 0.15; dx+=MAP_RES)
     {
         world.x = tempx+dx;
-        for (double dy = -0.1; dy < 0.1; dy+=MAP_RES)
+        for (double dy = -0.15; dy < 0.15; dy+=MAP_RES)
         {
             world.y = tempy+dy;
-            for (double dtheta = -30*ang_inc; dtheta <= 30*ang_inc; dtheta+=ang_inc)
+            for (double dtheta = -15*ang_inc; dtheta <= 15*ang_inc; dtheta+=ang_inc)
             {
                 world.theta = temptheta-dtheta;
-                makeLocalGridmap(world.x,world.y,world.theta,20);
+                makeLocalGridmap(world.x,world.y,world.theta,5);
                 cur_cost = 0;
                 for (int i = 0; i < MAP_X; ++i)
                 {
@@ -244,7 +244,7 @@ void Mapping::localise()
 //                    << " sec" << endl;
     world.x = tempx + min_dx;
     world.y = tempy + min_dy;
-    world.theta = temptheta - min_dtheta;
+    world.theta = temptheta + min_dtheta;
 //    cout << "min_dx: " << min_dx << " min_dy: " << min_dy << " min_dtheta: " << min_dtheta << endl;
 //    cout << "world.x: " << world.x << " world.y: " << world.y << " world.theta: " << world.theta << endl;
     drawGlobalMap();
