@@ -150,7 +150,7 @@ inline sys_state Planning::localise()
     world.off_y = 0;
     world.off_theta = 0;
     io.speak("Initial Localisation complete");
-    return GET_NEXT_CABINET;
+    return STOP;
 }
 
 inline sys_state Planning::getNextCabinet()

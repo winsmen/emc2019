@@ -56,6 +56,8 @@ class Mapping
     //Mapped Variables
     World &world;
     vector<CartPoint> cart_av;
+
+    double findClosest(int x, int y);
 public:
     int global_gridmap[MAP_Y][MAP_X];
     int local_gridmap[MAP_Y][MAP_X];
@@ -196,32 +198,37 @@ void Mapping::localise()
     tempx = world.x;
     tempy = world.y;
     temptheta = world.theta;
-    int min_cost = MAP_X*MAP_Y;
-    int cur_cost;
+    double min_cost = MAP_X*MAP_Y*10;
+    double cur_cost;
     double min_dx,min_dy,min_dtheta;
     min_dx = 0;
     min_dy = 0;
     min_dtheta = 0;
+    fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
     for (double dx = -0.15; dx <= 0.15; dx+=MAP_RES)
     {
         world.x = tempx+dx;
         for (double dy = -0.15; dy <= 0.15; dy+=MAP_RES)
         {
             world.y = tempy+dy;
-            for (double dtheta = -15*ang_inc; dtheta <= 15*ang_inc; dtheta+=ang_inc)
+            for (double dtheta = -10*ang_inc; dtheta <= 10*ang_inc; dtheta+=ang_inc)
             {
                 world.theta = temptheta+dtheta;
-                makeLocalGridmap(world.x,world.y,world.theta,2);
+                makeLocalGridmap(world.x,world.y,world.theta,5);
                 cur_cost = 0;
                 for (int i = 0; i < MAP_X; ++i)
                 {
                     for (int j = 0; j < MAP_Y; ++j)
                     {
                         if (local_gridmap[j][i] == 1)
-                            cur_cost += (local_gridmap[j][i]-global_gridmap[j][i])*(local_gridmap[j][i]-global_gridmap[j][i]);
+                        {
+//                            cur_cost += (local_gridmap[j][i]-global_gridmap[j][i])*(local_gridmap[j][i]-global_gridmap[j][i]);
+                            cur_cost += findClosest(i,j);
+
+                        }
                     }
                 }
-
+//                cout << "out" << endl;
                 if (cur_cost < min_cost)
                 {
                     min_dx = dx;
@@ -229,11 +236,20 @@ void Mapping::localise()
                     min_dtheta = dtheta;
                     min_cost = cur_cost;
                 }
-                //cout << "dx: " << dx << " dy: " << dy << " dtheta: " << dtheta << " cur_cost: " << cur_cost << endl;
+//                cout << "dx: " << dx << " dy: " << dy << " dtheta: " << dtheta << " cur_cost: " << cur_cost << endl;
 //                sleep(1);
             }
         }
     }
+//    for (int i = 0; i < MAP_X; ++i)
+//    {
+//        for (int j = 0; j < MAP_Y; ++j)
+//        {
+//            cout << global_gridmap[j][i];
+//        }
+//        cout << endl;
+//    }
+//    cout << endl << endl;
 //    cout << "min_cost: " << min_cost << endl;
     world.x = tempx + min_dx;
     world.y = tempy + min_dy;
@@ -241,6 +257,43 @@ void Mapping::localise()
 //    cout << "min_dx: " << min_dx << " min_dy: " << min_dy << " min_dtheta: " << min_dtheta << endl;
 //    cout << "world.x: " << world.x << " world.y: " << world.y << " world.theta: " << world.theta << endl;
     drawGlobalMap();
+}
+
+
+double Mapping::findClosest(int x, int y)
+{
+//    cout << "X: " << x << " y: " << y;
+    for (int i = 0; i <=10; ++i)
+    {
+        for (int j = -i; j <= i; ++j)
+        {
+            if (x+i < MAP_X && y+j > -1 && y+j < MAP_Y)
+                if (super_gridmap[y+j][x+i] == 1)
+                {
+//                    cout << " Closest at :" << i << " " << x+i << " " << y+j << endl;
+                    return distance(x,y,x+i,y+j);
+                }
+            if (x-i > -1 && y+j > -1 && y+j < MAP_Y)
+                if (super_gridmap[y+j][x-i] == 1)
+                {
+//                    cout << " Closest at :" << i << " " << x-i << " " << y+j << endl;
+                    return distance(x,y,x+i,y+j);
+                }
+            if (y+i < MAP_Y && x+j > -1 && x+j < MAP_X)
+                if (super_gridmap[y+i][x+j] == 1)
+                {
+//                    cout << " Closest at :" << i << " " << x+j << " " << y+i << endl;
+                    return distance(x,y,x+i,y+j);
+                }
+            if (y-i > -1 && x+j > -1 && x+j < MAP_X)
+                if (super_gridmap[y-i][x+j] == 1)
+                {
+//                    cout << " Closest at :" << i << " " << x+j << " " << y-i << endl;
+                    return distance(x,y,x+i,y+j);
+                }
+        }
+    }
+    return 10;
 }
 
 
@@ -492,44 +545,37 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
     }
     // Add points on 2D map
     fill_n(&local_gridmap[0][0],sizeof(local_gridmap)/sizeof(**local_gridmap),0);
-    fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
     for (int i = 0; i < points.size(); ++i)
     {
         int x_ = int(points[i].x/MAP_RES);
         int y_ = int(points[i].y/MAP_RES);
-//        cout << x_ << " " << y_ << " " << MAP_X << " " << MAP_Y;
         if (x_ < MAP_X && y_ < MAP_Y)
         {
             local_gridmap[y_][x_] = 1;
+            for (int j = -2; j <= 2; ++j)
+            {
+                for (int k = -2; k <= 2; ++k)
+                {
+                    if (y_+j > -1 && y_+j < MAP_Y && x_+k > -1 && x_+k < MAP_X)
+                    {
+                        global_gridmap[y_+j][x_+k] = super_gridmap[y_+j][x_+k];
+//                        if (global_gridmap[y_+j][x_+k] == 1)
+//                            circle(temp,Point(x_+k,y_+j),1,Scalar(0,0,255),1,8);
+                    }
+                }
+            }
+//            circle(temp,Point(x_,y_),1,Scalar(0,255,0),1,8);
         }
-//        circle(temp,Point(x_,y_),1,Scalar(255,255,255),1,8);
     }
-
     for (int i = 0; i < MAP_X; ++i)
     {
         for (int j = 0; j < MAP_Y; ++j)
         {
-            if (local_gridmap[j][i] == 1)
-            {
-                for (int l = 0; l <=0; ++l)
-                {
-                    for (int k = -0; k <= 0; ++k)
-                    {
-                        if (j+l > -1 && j+l < MAP_Y && i+k > -1 && i+k < MAP_X)
-                        {
-                            global_gridmap[j+l][i+k] = super_gridmap[j+l][i+k];
-//                            circle(temp,Point(i+k,j+l),1,Scalar(0,255,0),1,8);
-                        }
-                    }
-                }
-            }
-            else if (super_gridmap[j][i] == 1)
-            {
-                global_gridmap[j][i] = 5;
-//                circle(temp,Point(i,j),1,Scalar(0,0,255),1,8);
-            }
+            if (global_gridmap[j][i] == 0 && super_gridmap[j][i] == 1)
+                global_gridmap[j][i] = 3;
         }
     }
+
 //    flip(temp,temp,0);
 //    imshow("temp",temp);
 //    waitKey(25);
