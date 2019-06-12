@@ -121,9 +121,17 @@ void Actuation::actuate()
 //    else if (world.vx < -max_trans_)
 //        world.vx = -max_trans;
 
-    world.vx = world.des_vx;
-    world.vy = world.des_vy;
-    world.vtheta = world.des_vtheta;
+//    cout << atan2(world.des_vx,world.des_vy) << " " << world.theta << endl;
+//    if (atan2(world.des_vx,world.des_vy) - world.theta > 0.4)
+//        world.vtheta = -max_rot;
+//    else if (atan2(world.des_vx,world.des_vy) - world.theta < -0.4)
+//        world.vtheta = max_rot;
+//    else
+//    {
+        world.vx = world.des_vx;
+        world.vy = world.des_vy;
+        world.vtheta = world.des_vtheta;
+//    }
 
     //log("Vtheta: " + to_string(world.vtheta));
     //Send computed values to base
