@@ -8,6 +8,7 @@
 #include "common_resources.h"
 #include "measurement.h"
 #include "mapping.h"
+#include "astar.h"
 
 #define PLANNING_LOG_FLAG 3
 
@@ -150,7 +151,7 @@ inline sys_state Planning::localise()
     world.off_y = 0;
     world.off_theta = 0;
     io.speak("Initial Localisation complete");
-    return STOP;
+    return GET_NEXT_CABINET;
 }
 
 inline sys_state Planning::getNextCabinet()
@@ -166,6 +167,8 @@ inline sys_state Planning::getNextCabinet()
     cabinet_list.erase(cabinet_list.begin());
     log("Next Cabinet number: " + to_string(cab_num) + " at x: " + to_string(world.cabinets[cab_num].front.x) +
         " at y: " + to_string(world.cabinets[cab_num].front.y));
+    world.des_x = world.cabinets[cab_num].front.x;
+    world.des_y = world.cabinets[cab_num].front.y;
     io.speak("Next Cabinet " + to_string(cab_num));
     sleep(3);
     return GO_TO_DESTINATION;
@@ -174,14 +177,25 @@ inline sys_state Planning::getNextCabinet()
 inline sys_state Planning::goToDestination()
 {
     log("Path Planning");
-    // If reached destination
+    cout << "src: " << world.x << " " << world.y << endl;
+    Pair src = make_pair(world.y/MAP_RES,world.x/MAP_RES);
+    Pair dest = make_pair(world.des_y/MAP_RES,world.des_x/MAP_RES);
+    aStarSearch(weighted_map,src,dest);
+    world.path_x = path_x;
+    world.path_y = path_y;
+    //If reached destination
+    double angle = atan2(world.path_x[1]-world.path_x[0],world.path_x[1]-world.path_y[0]);
     world.des_vtheta = 0;
-    world.des_vx = 0;
-    world.des_vy = 0;
+    world.des_vx = max_trans*cos(world.path_y[1]-world.path_y[0]);
+    world.des_vy = max_trans*sin(world.path_x[0]-world.path_x[1]);
     world.vx = 0;
     world.vy = 0;
     world.vtheta = 0;
-    return AT_CABINET;
+    cout << world.x << " " <<  world.des_x  << " " << world.x - world.des_x << endl;
+    if (fabs(world.x - world.des_x) < dist_compare_tol/MAP_RES)
+        return AT_CABINET;
+    else
+        return GO_TO_DESTINATION;
 }
 
 inline sys_state Planning::atCabinet()

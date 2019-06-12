@@ -5,10 +5,19 @@
 #include <string.h>
 #include <fstream>
 #include <cmath>
+#include <iostream>
 
 #define RIGHT   0
 #define FRONT   1
 #define LEFT    2
+
+#define WINDOW_SIZE         300
+#define PPM                 70      // pixels per meter
+#define MAX_X               6.7     // map max x
+#define MAX_Y               6.4     // map max y
+#define MAP_RES             0.05    // in meters
+#define MAP_X               int(MAX_X/MAP_RES + 1)
+#define MAP_Y               int(MAX_Y/MAP_RES + 1)
 
 using namespace std;
 
@@ -106,6 +115,11 @@ struct World
     vector<CartPoint> points;
     vector<Line> walls;
     vector<Cabinet> cabinets;
+    int global_gridmap[MAP_Y][MAP_X];
+    int local_gridmap[MAP_Y][MAP_X];
+    vector<int> path_x;
+    vector<int> path_y;
+
 
     //Robot Variables
     double des_vx, des_vy, des_vtheta;

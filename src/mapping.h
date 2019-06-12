@@ -19,14 +19,6 @@ using namespace std;
 #define MAPPING_LOG_FLAG    3
 #endif
 
-#define WINDOW_SIZE         300
-#define PPM                 70      // pixels per meter
-#define MAX_X               6.7     // map max x
-#define MAX_Y               6.4     // map max y
-#define MAP_RES             0.05    // in meters
-#define MAP_X               int(MAX_X/MAP_RES + 1)
-#define MAP_Y               int(MAX_Y/MAP_RES + 1)
-
 #include "bin_map.h"
 
 using namespace cv;
@@ -59,8 +51,6 @@ class Mapping
 
     double findClosest(int x, int y);
 public:
-    int global_gridmap[MAP_Y][MAP_X];
-    int local_gridmap[MAP_Y][MAP_X];
     Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs);
     ~Mapping();
     void identify();
@@ -204,11 +194,11 @@ void Mapping::localise()
     min_dx = 0;
     min_dy = 0;
     min_dtheta = 0;
-    fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
-    for (double dx = -0.15; dx <= 0.15; dx+=MAP_RES)
+//    fill_n(&world.global_gridmap[0][0],sizeof(world.global_gridmap)/sizeof(**world.global_gridmap),0);
+    for (double dx = -0.1; dx <= 0.1; dx+=MAP_RES)
     {
         world.x = tempx+dx;
-        for (double dy = -0.15; dy <= 0.15; dy+=MAP_RES)
+        for (double dy = -0.1; dy <= 0.1; dy+=MAP_RES)
         {
             world.y = tempy+dy;
             for (double dtheta = -10*ang_inc; dtheta <= 10*ang_inc; dtheta+=ang_inc)
@@ -220,9 +210,9 @@ void Mapping::localise()
                 {
                     for (int j = 0; j < MAP_Y; ++j)
                     {
-                        if (local_gridmap[j][i] == 1)
+                        if (world.local_gridmap[j][i] == 1)
                         {
-//                            cur_cost += (local_gridmap[j][i]-global_gridmap[j][i])*(local_gridmap[j][i]-global_gridmap[j][i]);
+//                            cur_cost += (world.local_gridmap[j][i]-world.global_gridmap[j][i])*(world.local_gridmap[j][i]-world.global_gridmap[j][i]);
                             cur_cost += findClosest(i,j);
 
                         }
@@ -245,7 +235,7 @@ void Mapping::localise()
 //    {
 //        for (int j = 0; j < MAP_Y; ++j)
 //        {
-//            cout << global_gridmap[j][i];
+//            cout << world.global_gridmap[j][i];
 //        }
 //        cout << endl;
 //    }
@@ -514,7 +504,7 @@ void Mapping::drawGlobalMap()
 //    {
 //        for (int j = 0; j < MAP_Y; ++j)
 //        {
-//            if (global_gridmap[j][i] == 1)
+//            if (world.global_gridmap[j][i] == 1)
 //                circle(global_map,Point(i*MAX_X*PPM/MAP_X,j*MAX_Y*PPM/MAP_Y),1,Scalar(0,0,255),1,8);
 //        }
 //    }
@@ -524,6 +514,14 @@ void Mapping::drawGlobalMap()
         polar2cart(scan.ranges[i],i*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
         circle(global_map,Point(x*PPM,y*PPM),1,Scalar(0,255,0),1,8);
 //        circle(global_map,Point((x*MAP_X)/MAX_X,(y*MAP_Y)/MAX_Y),1,Scalar(0,255,0),1,8);
+    }
+
+    if (!world.path_x.empty())
+    {
+        for (int i = 0; i < world.path_x.size(); ++i)
+        {
+            circle(global_map,Point(world.path_x[i]*MAP_RES*PPM,world.path_y[i]*MAP_RES*PPM),1,Scalar(0,255,255),2,8);
+        }
     }
 
     Mat flip_im;
@@ -544,37 +542,37 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
         points.push_back(CartPoint(x,y));
     }
     // Add points on 2D map
-    fill_n(&local_gridmap[0][0],sizeof(local_gridmap)/sizeof(**local_gridmap),0);
+    fill_n(&world.local_gridmap[0][0],sizeof(world.local_gridmap)/sizeof(**world.local_gridmap),0);
     for (int i = 0; i < points.size(); ++i)
     {
         int x_ = int(points[i].x/MAP_RES);
         int y_ = int(points[i].y/MAP_RES);
         if (x_ < MAP_X && y_ < MAP_Y)
         {
-            local_gridmap[y_][x_] = 1;
-            for (int j = -2; j <= 2; ++j)
-            {
-                for (int k = -2; k <= 2; ++k)
-                {
-                    if (y_+j > -1 && y_+j < MAP_Y && x_+k > -1 && x_+k < MAP_X)
-                    {
-                        global_gridmap[y_+j][x_+k] = super_gridmap[y_+j][x_+k];
-//                        if (global_gridmap[y_+j][x_+k] == 1)
-//                            circle(temp,Point(x_+k,y_+j),1,Scalar(0,0,255),1,8);
-                    }
-                }
-            }
+            world.local_gridmap[y_][x_] = 1;
+//            for (int j = -2; j <= 2; ++j)
+//            {
+//                for (int k = -2; k <= 2; ++k)
+//                {
+//                    if (y_+j > -1 && y_+j < MAP_Y && x_+k > -1 && x_+k < MAP_X)
+//                    {
+//                        world.global_gridmap[y_+j][x_+k] = super_gridmap[y_+j][x_+k];
+////                        if (world.global_gridmap[y_+j][x_+k] == 1)
+////                            circle(temp,Point(x_+k,y_+j),1,Scalar(0,0,255),1,8);
+//                    }
+//                }
+//            }
 //            circle(temp,Point(x_,y_),1,Scalar(0,255,0),1,8);
         }
     }
-    for (int i = 0; i < MAP_X; ++i)
-    {
-        for (int j = 0; j < MAP_Y; ++j)
-        {
-            if (global_gridmap[j][i] == 0 && super_gridmap[j][i] == 1)
-                global_gridmap[j][i] = 3;
-        }
-    }
+//    for (int i = 0; i < MAP_X; ++i)
+//    {
+//        for (int j = 0; j < MAP_Y; ++j)
+//        {
+//            if (world.global_gridmap[j][i] == 0 && super_gridmap[j][i] == 1)
+//                world.global_gridmap[j][i] = 3;
+//        }
+//    }
 
 //    flip(temp,temp,0);
 //    imshow("temp",temp);

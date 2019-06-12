@@ -15,8 +15,8 @@
 #define SIDE_RANGE          50
 #define MIN_RANGE           0.1
 #define HEARTBEAT           10
-#define MAX_ROT             1.2
-#define MAX_TRANS           0.3
+#define MAX_ROT             0.5
+#define MAX_TRANS           0.15
 
 
 void readCabinetList(int argc, char *argv[]);
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
             loss_count += 1;
             if (loss_count >= 10)
             {
-                cout << "Warning: Sensing failure for more than 10 iterations! Switching off locomotion.";
+                pico.log("Warning: Sensing failure for more than 10 iterations! Switching off locomotion.");
                 pico.io.sendBaseReference(0,0,0);
             }
             continue;

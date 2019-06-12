@@ -10,7 +10,7 @@
 
 #define ACTUATION_LOG_FLAG 3
 
-#define ACC_TRANS           0.005
+#define ACC_TRANS           0.05
 #define ACC_ROT             0.04
 
 using namespace std;
@@ -61,65 +61,69 @@ void Actuation::log(string text)
 
 void Actuation::actuate()
 {
-    double max_rot_ = max_rot, max_trans_ = max_trans;
-    int i = getHeading();
-    int forward_clear = m.sectorClear(i);
-    if (forward_clear == 0 || forward_clear == 3)
-        max_trans_ = 0;
-    else if (forward_clear == 2)
-        max_trans_ /= 2;
-    //log("sector clear: " + to_string(i));
+//    double max_rot_ = max_rot, max_trans_ = max_trans;
+//    int i = getHeading();
+//    int forward_clear = m.sectorClear(i);
+//    if (forward_clear == 0 || forward_clear == 3)
+//        max_trans_ = 0;
+//    else if (forward_clear == 2)
+//        max_trans_ = 2;
+//    //log("sector clear: " + to_string(i));
 
-    // Set Rotational Velocity
-    //Turn to face heading direction if no theta velocity is supplied
-    if (world.des_vtheta == 0)
-    {
-        world.des_vtheta = world.des_vy/max_trans_*max_rot_;
-        world.vtheta = 0;
-    }
-    //Accelerate/Decelerate if desired and actual theta velocities are unequal
-    if (world.des_vtheta-world.vtheta > 0)
-        world.vtheta += ACC_ROT;
-    else if (world.des_vtheta-world.vtheta < 0)
-        world.vtheta -=ACC_ROT;
-    //Shift to 0 if velocity direction has switched.
-    else if (fabs(world.des_vtheta-world.vtheta) > max_rot_)
-        world.vtheta = 0;
-    //Saturate to maximum permissable velocity
-    if (world.vtheta > max_rot_)
-        world.vtheta = max_rot_;
-    else if (world.vtheta < -max_rot_)
-        world.vtheta = -max_rot_;
+//    // Set Rotational Velocity
+//    //Turn to face heading direction if no theta velocity is supplied
+////    if (world.des_vtheta == 0)
+////    {
+////        world.des_vtheta = world.des_vy/max_trans_*max_rot_;
+////        world.vtheta = 0;
+////    }
+////    //Accelerate/Decelerate if desired and actual theta velocities are unequal
+////    if (world.des_vtheta-world.vtheta > 0)
+////        world.vtheta += ACC_ROT;
+////    else if (world.des_vtheta-world.vtheta < 0)
+////        world.vtheta -=ACC_ROT;
+////    //Shift to 0 if velocity direction has switched.
+////    else if (fabs(world.des_vtheta-world.vtheta) > max_rot_)
+////        world.vtheta = 0;
+////    //Saturate to maximum permissable velocity
+////    if (world.vtheta > max_rot_)
+////        world.vtheta = max_rot_;
+////    else if (world.vtheta < -max_rot_)
+////        world.vtheta = -max_rot_;
 
-    // Y-direction velocity
-    //Accelerate/Decelerate if desired and actual Y velocities are unequal
-    if (world.des_vy-world.vy > 0)
-        world.vy += ACC_ROT;
-    else if (world.des_vy-world.vy < 0)
-        world.vy -= ACC_ROT;
-    //Shift to 0 if velocity direction has switched
-    else if (fabs(world.des_vy-world.vy) > max_trans_)
-        world.vy = 0;
-    //Saturate to maximum permissable velocity
-    if (world.vy > max_trans_)
-        world.vy = max_trans_;
-    else if (world.vy < -max_trans_)
-        world.vy = -max_trans_;
+//    // Y-direction velocity
+//    //Accelerate/Decelerate if desired and actual Y velocities are unequal
+//    if (world.des_vy-world.vy > 0)
+//        world.vy = max_trans;
+//    else if (world.des_vy-world.vy < 0)
+//        world.vy = -max_trans;
+//    //Shift to 0 if velocity direction has switched
+//    else if (fabs(world.des_vy-world.vy) > max_trans_)
+//        world.vy = 0;
+//    //Saturate to maximum permissable velocity
+//    if (world.vy > max_trans_)
+//        world.vy = max_trans;
+//    else if (world.vy < -max_trans_)
+//        world.vy = -max_trans;
 
-    // X-direction velocity
-    //Accelerate/Decelerate if desired and actual X velocities are unequal
-    if (world.des_vx-world.vx > 0)
-        world.vx += ACC_ROT;
-    else if (world.des_vx-world.vx < 0)
-        world.vx -= ACC_ROT;
-    //Shift to 0 if velocity direction has switched
-    else if (fabs(world.des_vx-world.vx) > max_trans_)
-        world.vx = 0;
-    //Saturate to maximum permissable velocity
-    if (world.vx > max_trans_)
-        world.vx = max_trans_;
-    else if (world.vx < -max_trans_)
-        world.vx = -max_trans_;
+//    // X-direction velocity
+//    //Accelerate/Decelerate if desired and actual X velocities are unequal
+//    if (world.des_vx-world.vx > 0)
+//        world.vx = max_trans;
+//    else if (world.des_vx-world.vx < 0)
+//        world.vx = -max_trans;
+//    //Shift to 0 if velocity direction has switched
+//    else if (fabs(world.des_vx-world.vx) > max_trans_)
+//        world.vx = 0;
+//    //Saturate to maximum permissable velocity
+//    if (world.vx > max_trans_)
+//        world.vx = max_trans;
+//    else if (world.vx < -max_trans_)
+//        world.vx = -max_trans;
+
+    world.vx = world.des_vx;
+    world.vy = world.des_vy;
+    world.vtheta = world.des_vtheta;
 
     //log("Vtheta: " + to_string(world.vtheta));
     //Send computed values to base
