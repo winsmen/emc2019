@@ -211,7 +211,7 @@ void Mapping::localise()
             for (double dtheta = -15*ang_inc; dtheta <= 15*ang_inc; dtheta+=ang_inc)
             {
                 world.theta = temptheta+dtheta;
-                makeLocalGridmap(world.x,world.y,world.theta,20);
+                makeLocalGridmap(world.x,world.y,world.theta,2);
                 cur_cost = 0;
                 for (int i = 0; i < MAP_X; ++i)
                 {
@@ -481,7 +481,7 @@ void Mapping::drawGlobalMap()
 
 void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
 {
-//    cv::Mat temp = Mat(MAP_Y,MAP_X,CV_8UC3,local_gridmap);
+//    cv::Mat temp = Mat::zeros(MAP_Y,MAP_X,CV_8UC3);
     vector<CartPoint> points;
     double x,y;
     // Convert all points (padding:step:scan_span-padding) to Cartesian Coordinates
@@ -495,40 +495,41 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
     fill_n(&global_gridmap[0][0],sizeof(global_gridmap)/sizeof(**global_gridmap),0);
     for (int i = 0; i < points.size(); ++i)
     {
-        int x_ = points[i].x/MAP_RES;
-        int y_ = points[i].y/MAP_RES;
-//        if (x_ > MAP_X-1)
-//        {
-//            x_ = MAP_X-1;
-//        }
-//        if (y_ > MAP_Y-1)
-//        {
-//            y_ = MAP_Y-1;
-//        }
+        int x_ = int(points[i].x/MAP_RES);
+        int y_ = int(points[i].y/MAP_RES);
+//        cout << x_ << " " << y_ << " " << MAP_X << " " << MAP_Y;
         if (x_ < MAP_X && y_ < MAP_Y)
         {
             local_gridmap[y_][x_] = 1;
-            for (int j = 0; j <=0; ++j)
-            {
-                for (int k = -0; k <= 0; ++k)
-                {
-                    if (y_+j > -1 && y_+j < MAP_Y && x_+k > -1 && x_+k < MAP_X)
-                        global_gridmap[y_+j][x_+k] = super_gridmap[y_+j][x_+k];
-                }
-            }
         }
 //        circle(temp,Point(x_,y_),1,Scalar(255,255,255),1,8);
     }
-//    for (int i = 0; i < MAP_X; ++i)
-//    {
-//        for (int j = 0; j < MAP_Y; ++j)
-//        {
-//            if (super_gridmap[j][i] == 1)
-//            {
-//                circle(temp,Point(i,j),1,Scalar(0,255,0),1,8);
-//            }
-//        }
-//    }
+
+    for (int i = 0; i < MAP_X; ++i)
+    {
+        for (int j = 0; j < MAP_Y; ++j)
+        {
+            if (local_gridmap[j][i] == 1)
+            {
+                for (int l = 0; l <=0; ++l)
+                {
+                    for (int k = -0; k <= 0; ++k)
+                    {
+                        if (j+l > -1 && j+l < MAP_Y && i+k > -1 && i+k < MAP_X)
+                        {
+                            global_gridmap[j+l][i+k] = super_gridmap[j+l][i+k];
+//                            circle(temp,Point(i+k,j+l),1,Scalar(0,255,0),1,8);
+                        }
+                    }
+                }
+            }
+            else if (super_gridmap[j][i] == 1)
+            {
+                global_gridmap[j][i] = 5;
+//                circle(temp,Point(i,j),1,Scalar(0,0,255),1,8);
+            }
+        }
+    }
 //    flip(temp,temp,0);
 //    imshow("temp",temp);
 //    waitKey(25);
