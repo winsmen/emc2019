@@ -1,0 +1,13 @@
+Pico Main Log: Wed Jun 12 17:04:20 2019
+
+Waiting for IO modules
+IO modules ready
+Initialising Measurement Module
+Initialising Mapping Module
+Initialising Planning Module
+Initialising Actuation Module
+Pico State: STARTUP
+I will visit cabinets 0 1 and 3 
+Pico State: FIRST_LOCALIZATION
+Pico State: GET_NEXT_CABINET
+Pico State: GO_TO_DESTINATION
