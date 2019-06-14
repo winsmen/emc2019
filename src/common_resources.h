@@ -38,7 +38,7 @@ inline double distance(double x1, double y1, double x2, double y2);
 enum sys_state
 {
     STARTUP,
-    FIRST_LOCALIZATION,
+    FIRST_LOCALISATION,
     GET_NEXT_CABINET,
     GO_TO_DESTINATION,
     AT_CABINET,
@@ -126,7 +126,6 @@ struct World
     double vx, vy, vtheta;
     double des_x,des_y,des_theta;
     double x,y,theta;
-    double off_x, off_y, off_theta;
 
     World();
     ~World();
@@ -160,7 +159,6 @@ World::World()
 
     des_vtheta = des_vx = des_vy = 0;
     vtheta = vx = vy = 0;
-    off_theta = off_x = off_y = -1;
     x = y = -1;
 }
 
@@ -181,13 +179,13 @@ struct Performance
     const int side_range;
     const double min_range;
     const int heartbeat;
-    const double max_rot,max_trans;
+    const double max_rot,max_trans,min_rot,min_trans;
 
     Performance(float mpd, float dct, float cct, float act, int p, int avr, int sr, float mr,
-                int hb, double maxR, double maxT)
+                int hb, double maxT, double maxR, double minT, double minR)
         : min_permit_dist(mpd), dist_compare_tol(dct), corner_compare_tol(cct),
           angle_compare_tol(act), padding(p), av_range(avr), side_range(sr),
-          min_range(mr), heartbeat(hb), max_rot(maxR), max_trans(maxT)
+          min_range(mr), heartbeat(hb), max_rot(maxR), max_trans(maxT), min_rot(minR), min_trans(minT)
     {}
 };
 

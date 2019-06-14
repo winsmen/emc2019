@@ -10,7 +10,7 @@
 #include "mapping.h"
 #include "astar.h"
 
-#define PLANNING_LOG_FLAG 3
+#define PLANNING_LOG_FLAG 1
 
 using namespace std;
 
@@ -22,7 +22,7 @@ class Planning
     Mapping &mapper;
     ofstream planning_log;
     double dist_compare_tol;
-    double max_rot,max_trans;
+    double max_rot,max_trans,min_rot,min_trans;
     double min_angle,max_angle;
     double min_permit_dist;
     double ang_inc;
@@ -47,7 +47,7 @@ public:
 Planning::Planning(emc::IO *io, World *w, Measurement *s, Mapping *m, const Performance specs) :
     world(*w), sense(*s), dist_compare_tol(specs.dist_compare_tol), ang_inc(s->getAngInc()),
     max_rot(specs.max_rot), max_trans(specs.max_trans), min_permit_dist(specs.min_permit_dist),
-    io(*io), mapper(*m)
+    io(*io), mapper(*m), min_rot(specs.min_rot), min_trans(specs.min_trans)
 
 {
     planning_log.open("../logs/planning_log.txt", ios::out | ios::trunc);
@@ -69,7 +69,7 @@ sys_state Planning::plan(sys_state s)
     case STARTUP:
         return startup(s);
 
-    case FIRST_LOCALIZATION:
+    case FIRST_LOCALISATION:
         return localise();
 
     case GET_NEXT_CABINET:
@@ -93,13 +93,16 @@ sys_state Planning::plan(sys_state s)
 
 inline sys_state Planning::startup(sys_state s)
 {
+    // Get Left Wall Alignment Measure
     double alignment_diff = fabs(sense.alignedToWall(LEFT));
     log("alignment_diff: " + to_string(alignment_diff));
+
+    // Check if Exit is in front sector
     bool exit_in_front = false;
     for (int i = 0; i < world.exits.size(); ++i)
     {
-        log(to_string((world.right.i+world.center.i)/3)+" "+to_string(world.exits[i].center.i)+" "+
-            to_string((world.left.i+world.center.i)*2.0/3.0));
+        /*log(to_string((world.right.i+world.center.i)/3)+" "+to_string(world.exits[i].center.i)+" "+
+            to_string((world.left.i+world.center.i)*2.0/3.0));*/
         if (world.exits[i].center.i > (world.right.i+world.center.i)/3 &&
                 world.exits[i].center.i < (world.left.i+world.center.i)*2.0/3.0)
         {
@@ -107,13 +110,27 @@ inline sys_state Planning::startup(sys_state s)
             break;
         }
     }
-    log("exit in front: " + to_string(exit_in_front));
-    if (exit_in_front && alignment_diff < 0.8*dist_compare_tol) //add side conditions
+    log("exit in front: " + to_string(exit_in_front) + " right_dist: " + to_string(world.right.d));
+
+    // If aligned to left wall and exit visible in front sector and right is clear,
+    // switch to FIRST_LOCALISATION
+    if (exit_in_front && alignment_diff < 0.7*dist_compare_tol && world.right.d > 2*min_permit_dist)
     {
         world.des_vtheta = 0;
-        return FIRST_LOCALIZATION;
+        world.des_vx = 0;
+        world.des_vy = 0;
+        return FIRST_LOCALISATION;
     }
-    world.des_vtheta = -max_rot;
+
+    // If exit not visible in front sector -> full speed turn,
+    // else use alignment value for vtheta for gradual stop
+    // alignment_diff max value ~= 0.9
+    if (!exit_in_front)
+        world.des_vtheta = -max_rot;
+    else
+        world.des_vtheta = max(-max_rot,min(-min_rot,-alignment_diff*10*max_rot));
+
+    // No Translational movement at startup
     world.des_vx = 0;
     world.des_vy = 0;
 
@@ -126,6 +143,13 @@ inline sys_state Planning::localise()
     // Right Edge - Point 17 - x = 5.9, y = 4.4
     double x_diff,y_diff;
     double Rexit_x,Rexit_y,Lexit_x,Lexit_y;
+
+    // Chek if exit is lost
+    log("Number of exits: " + to_string(world.exits.size()));
+    if (world.exits.size() == 0)
+        return STARTUP;
+
+    // Load cartesian coordinates of Exit located in front sector only
     for (int i = 0; i < world.exits.size(); ++i)
     {
         if (world.exits[i].center.i > (world.right.i+world.center.i)/3 &&
@@ -137,25 +161,25 @@ inline sys_state Planning::localise()
             y_diff = (world.points[17].y-Rexit_y + world.points[22].y-Lexit_y)/2;
         }
     }
-    log("Number of exits: " + to_string(world.exits.size()));
-    log("x_diff: " + to_string(x_diff));
-    log("y_diff: " + to_string(y_diff));
-    log("Lexit_x: " + to_string(Lexit_x) + " Rexit_x" + to_string(Rexit_x));
-    log("Lexit_y: " + to_string(Lexit_y) + " Rexit_y" + to_string(Rexit_y));
-    log("Left Exit Corner - x: " + to_string(world.points[22].x) + " y: " + to_string(world.points[22].y));
-    log("Right Exit Corner - x: " + to_string(world.points[17].x) + " y: " + to_string(world.points[17].y));
+    log("world.Lexit_x: " + to_string(Lexit_x) + " world.Rexit_x" + to_string(Rexit_x));
+    log("world.Lexit_y: " + to_string(Lexit_y) + " world.Rexit_y" + to_string(Rexit_y));
+    log("Map Left Exit Corner - x: " + to_string(world.points[22].x) + " y: " + to_string(world.points[22].y));
+    log("Map Right Exit Corner - x: " + to_string(world.points[17].x) + " y: " + to_string(world.points[17].y));
+
+    // Set robot x,y position to difference between detected and provided exit coordinates
+    log("world.x: " + to_string(x_diff));
+    log("world.y: " + to_string(y_diff));
     world.x = x_diff;
     world.y = y_diff;
     world.theta = 0;
-    world.off_x = 0;
-    world.off_y = 0;
-    world.off_theta = 0;
     io.speak("Initial Localisation complete");
+    sleep(4);
     return GET_NEXT_CABINET;
 }
 
 inline sys_state Planning::getNextCabinet()
 {
+    // Check if list is empty
     if (cabinet_list.empty())
     {
         io.speak("No more cabinets to visit. Goodbye.");
@@ -163,8 +187,9 @@ inline sys_state Planning::getNextCabinet()
         sleep(4);
         return STOP;
     }
+
+    // Get next cabinet and store coordinates as destination for path planning
     cab_num = cabinet_list[0];
-    cabinet_list.erase(cabinet_list.begin());
     log("Next Cabinet number: " + to_string(cab_num) + " at x: " + to_string(world.cabinets[cab_num].front.x) +
         " at y: " + to_string(world.cabinets[cab_num].front.y));
     world.des_x = world.cabinets[cab_num].front.x;
@@ -176,23 +201,25 @@ inline sys_state Planning::getNextCabinet()
 
 inline sys_state Planning::goToDestination()
 {
-    log("Path Planning");
-    cout << "src: " << world.x << " " << world.y << endl;
+    // Set source and destination points to feed to path planner
+    log("src: " + to_string(world.x) + " " + to_string(world.y));
+    log("dest: " + to_string(world.des_x) + " " + to_string(world.des_y));
     Pair src = make_pair(world.y/MAP_RES,world.x/MAP_RES);
     Pair dest = make_pair(world.des_y/MAP_RES,world.des_x/MAP_RES);
-    aStarSearch(weighted_map,src,dest);
+
+    // Run path planner
+    aStarSearch(world.global_gridmap,src,dest);
     world.path_x = path_x;
     world.path_y = path_y;
-    //If reached destination
+
+    // Resolve velocity vector for current movement
     double angle = atan2(world.path_x[1]-world.path_x[0],world.path_x[1]-world.path_y[0]);
     world.des_vtheta = 0;
-    world.des_vx = max_trans*cos(world.path_y[1]-world.path_y[0]);
-    world.des_vy = max_trans*sin(world.path_x[0]-world.path_x[1]);
-    world.vx = 0;
-    world.vy = 0;
-    world.vtheta = 0;
-    cout << world.x << " " <<  world.des_x  << " " << world.x - world.des_x << endl;
-    if (fabs(world.x - world.des_x) < dist_compare_tol/MAP_RES)
+    world.des_vx = max_trans*(world.path_y[1]-world.path_y[0]);
+    world.des_vy = max_trans*(world.path_x[0]-world.path_x[1]);
+
+    //If reached destination
+    if (distance(world.x,world.y,world.des_x,world.des_y) < dist_compare_tol/MAP_RES)
         return AT_CABINET;
     else
         return GO_TO_DESTINATION;
@@ -209,6 +236,8 @@ inline sys_state Planning::atCabinet()
     world.vx = 0;
     world.vy = 0;
     world.vtheta = 0;
+
+    cabinet_list.erase(cabinet_list.begin());
     return GET_NEXT_CABINET;
 }
 

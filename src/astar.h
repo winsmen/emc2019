@@ -69,7 +69,7 @@ double calculateHValue(int row, int col, Pair dest)
 // to destination
 void tracePath(cell cellDetails[][MAP_X], Pair dest)
 {
-        printf ("\nThe Path is ");
+        //printf ("\nThe Path is ");
         int row = dest.first;
         int col = dest.second;
 
@@ -90,7 +90,7 @@ void tracePath(cell cellDetails[][MAP_X], Pair dest)
         {
                 pair<int,int> p = Path.top();
                 Path.pop();
-                printf("-> (%d,%d) ",p.first,p.second);
+                //printf("-> (%d,%d) ",p.first,p.second);
                 path_y.push_back(p.first);
                 path_x.push_back(p.second);
         }
@@ -102,20 +102,20 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
 {
     path_x.clear();
     path_y.clear();
-        cout << "src: x: " << src.first << " y: " << src.second << endl;
-        cout << "dest: x:" << dest.first << " y: " << dest.second << endl;
+        //cout << "src: x: " << src.first << " y: " << src.second << endl;
+        //cout << "dest: x:" << dest.first << " y: " << dest.second << endl;
 
         // If the source is out of range
         if (isValid (src.first, src.second) == false)
         {
-                printf ("Source is invalid\n");
+                //printf ("Source is invalid\n");
                 return;
         }
 
         // If the destination is out of range
         if (isValid (dest.first, dest.second) == false)
         {
-                printf ("Destination is invalid\n");
+                //printf ("Destination is invalid\n");
                 return;
         }
 
@@ -123,14 +123,14 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
         if (isUnBlocked(grid, src.first, src.second) == false ||
                         isUnBlocked(grid, dest.first, dest.second) == false)
         {
-                printf ("Source or the destination is blocked\n");
+                //printf ("Source or the destination is blocked\n");
                 return;
         }
 
         // If the destination cell is the same as source cell
         if (isDestination(src.first, src.second, dest) == true)
         {
-                printf ("We are already at the destination\n");
+                //printf ("We are already at the destination\n");
                 return;
         }
 
@@ -231,7 +231,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i-1][j].parent_i = i;
                                 cellDetails[i-1][j].parent_j = j;
-                                printf ("The destination cell is found\n");
+                                //printf ("The destination cell is found\n");
                                 tracePath (cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -282,7 +282,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i+1][j].parent_i = i;
                                 cellDetails[i+1][j].parent_j = j;
-                                printf("The destination cell is found\n");
+                                //printf("The destination cell is found\n");
                                 tracePath(cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -331,7 +331,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i][j+1].parent_i = i;
                                 cellDetails[i][j+1].parent_j = j;
-                                printf("The destination cell is found\n");
+                                //printf("The destination cell is found\n");
                                 tracePath(cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -383,7 +383,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i][j-1].parent_i = i;
                                 cellDetails[i][j-1].parent_j = j;
-                                printf("The destination cell is found\n");
+                                //printf("The destination cell is found\n");
                                 tracePath(cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -435,7 +435,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i-1][j+1].parent_i = i;
                                 cellDetails[i-1][j+1].parent_j = j;
-                                printf ("The destination cell is found\n");
+                                //printf ("The destination cell is found\n");
                                 tracePath (cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -487,7 +487,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i-1][j-1].parent_i = i;
                                 cellDetails[i-1][j-1].parent_j = j;
-                                printf ("The destination cell is found\n");
+                                //printf ("The destination cell is found\n");
                                 tracePath (cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -537,7 +537,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i+1][j+1].parent_i = i;
                                 cellDetails[i+1][j+1].parent_j = j;
-                                printf ("The destination cell is found\n");
+                                //printf ("The destination cell is found\n");
                                 tracePath (cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -589,7 +589,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
                                 // Set the Parent of the destination cell
                                 cellDetails[i+1][j-1].parent_i = i;
                                 cellDetails[i+1][j-1].parent_j = j;
-                                printf("The destination cell is found\n");
+                                //printf("The destination cell is found\n");
                                 tracePath(cellDetails, dest);
                                 foundDest = true;
                                 return;
@@ -635,7 +635,7 @@ void aStarSearch(int grid[MAP_Y][MAP_X], Pair src, Pair dest)
         // reach the destiantion cell. This may happen when the
         // there is no way to destination cell (due to blockages)
         if (foundDest == false)
-                printf("Failed to find the Destination Cell\n");
+                //printf("Failed to find the Destination Cell\n");
 
         return;
 }

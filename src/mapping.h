@@ -16,7 +16,7 @@
 using namespace std;
 
 #ifndef MAPPING_LOG_FLAG
-#define MAPPING_LOG_FLAG    3
+#define MAPPING_LOG_FLAG    1
 #endif
 
 #include "bin_map.h"
@@ -62,6 +62,7 @@ public:
     void log(string text);
     void makeLocalGridmap(double dx, double dy, double dtheta, int step);
     void captureImage(int num);
+    void genWeightedMap();
 };
 
 
@@ -247,6 +248,7 @@ void Mapping::localise()
 //    cout << "min_dx: " << min_dx << " min_dy: " << min_dy << " min_dtheta: " << min_dtheta << endl;
 //    cout << "world.x: " << world.x << " world.y: " << world.y << " world.theta: " << world.theta << endl;
     drawGlobalMap();
+    genWeightedMap();
 }
 
 
@@ -596,6 +598,44 @@ void Mapping::captureImage(int num)
     circle(frame,Point(x_c,y_c),4,Scalar(255,255,255),2,8);
     flip(frame,frame,0);
     imwrite("../captures/cab"+to_string(num)+".png",frame);
+}
+
+
+void Mapping::genWeightedMap()
+{
+    int layers = 8;
+    fill_n(&world.global_gridmap[0][0],sizeof(world.global_gridmap)/sizeof(**world.global_gridmap),0);
+    for (int i = 0; i < MAP_X; ++i)
+    {
+        for (int j = 0; j < MAP_Y; ++j)
+        {
+            if (super_gridmap[j][i] == 1)
+            {
+                for (int k = 0; k <= layers; ++k)
+                {
+                    for (int l = -k; l <= k; ++l)
+                    {
+                        if (j+k < MAP_Y && i+l > -1 && i+l < MAP_X && world.global_gridmap[j+k][i+l] < layers-k)
+                            world.global_gridmap[j+k][i+l] = layers-k;
+                        if (j-k > -1 && i+l > -1 && i+l < MAP_X && world.global_gridmap[j-k][i+l] < layers-k)
+                            world.global_gridmap[j-k][i+l] = layers-k;
+                        if (i+k < MAP_X && j+l > -1 && j+l < MAP_Y && world.global_gridmap[j+l][i+k] < layers-k)
+                            world.global_gridmap[j+l][i+k] = layers-k;
+                        if (i-k > -1 && j+l > -1 && j+l < MAP_Y && world.global_gridmap[j+l][i-k] < layers-k)
+                            world.global_gridmap[j+l][i-k] = layers-k;
+                    }
+                }
+            }
+        }
+    }
+//    for (int i = 0; i < MAP_Y; ++i)
+//    {
+//        for (int j = 0; j < MAP_X; ++j)
+//        {
+//            cout << world.global_gridmap[i][j];
+//        }
+//        cout << endl;
+//    }
 }
 
 

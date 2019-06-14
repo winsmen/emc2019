@@ -175,7 +175,7 @@ void Robot::printState(sys_state s)
     case STARTUP:
         log("Pico State: STARTUP");
         break;
-    case FIRST_LOCALIZATION:
+    case FIRST_LOCALISATION:
         log("Pico State: FIRST_LOCALIZATION");
         break;
     case GET_NEXT_CABINET:

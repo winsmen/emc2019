@@ -11,7 +11,7 @@
 #define ACTUATION_LOG_FLAG 3
 
 #define ACC_TRANS           0.05
-#define ACC_ROT             0.04
+#define ACC_ROT             0.08
 
 using namespace std;
 
@@ -22,8 +22,7 @@ class Actuation
     Measurement &m;
     const double min_permit_dist;
     const double dist_compare_tol;
-    const float max_rot;
-    const float max_trans;
+    const double max_rot,max_trans,min_rot,min_trans;
     ofstream act_log;
     void log(string text);
     int getHeading();
@@ -35,7 +34,8 @@ public:
 
 Actuation::Actuation(emc::IO *io, World *w, const Performance s, Measurement *m)
     : io(*io), world(*w), m(*m), min_permit_dist(s.min_permit_dist),
-      dist_compare_tol(s.dist_compare_tol), max_rot(s.max_rot), max_trans(s.max_trans)
+      dist_compare_tol(s.dist_compare_tol), max_rot(s.max_rot), max_trans(s.max_trans),
+      min_rot(s.min_rot), min_trans(s.min_trans)
 {
     act_log.open("../logs/actuation_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
@@ -70,13 +70,46 @@ void Actuation::actuate()
 //        max_trans_ = 2;
 //    //log("sector clear: " + to_string(i));
 
-//    // Set Rotational Velocity
-//    //Turn to face heading direction if no theta velocity is supplied
-////    if (world.des_vtheta == 0)
-////    {
-////        world.des_vtheta = world.des_vy/max_trans_*max_rot_;
-////        world.vtheta = 0;
-////    }
+    // Set Rotational Velocity
+    // Turn to face heading direction if no theta velocity is supplied
+    log("des_vx: " + to_string(world.des_vx) + "des_vy: " + to_string(world.des_vy) + "des_vtheta: " + to_string(world.des_vtheta));
+    log("theta: " + to_string(world.theta) + "diff: " + to_string(fabs(atan2(world.des_vy,world.des_vx)-world.theta)));
+    if (world.des_vtheta == 0)
+    {
+        if (false/*(world.des_vx != 0 || world.des_vy != 0) && fabs(atan2(world.des_vy,world.des_vx)-world.theta) > 0.02*/)
+        {
+            double angle = -atan2(world.des_vy,world.des_vx)*2.0/M_PI;
+            if (world.des_vx < 0)
+            {
+                cout << "positive angle" << endl;
+                world.vtheta = max(min_rot,min(max_rot,angle));
+            }
+            else
+            {
+                cout << "negative angle" << endl;
+                world.vtheta = min(-min_rot,max(-max_rot,-angle));
+            }
+            world.vx = 0;
+            world.vy = 0;
+        }
+        else
+        {
+            world.vtheta = 0;
+            world.vx = world.des_vx;
+            world.vy = world.des_vy;
+        }
+    }
+    else
+    {
+        if (world.vtheta - world.des_vtheta < -ACC_ROT)
+            world.vtheta += ACC_ROT;
+        else if (world.vtheta - world.des_vtheta > ACC_ROT)
+            world.vtheta -= ACC_ROT;
+        else
+            world.vtheta = world.des_vtheta;
+
+        log("world.des_vtheta: " + to_string(world.des_vtheta) + " world.vtheta: " + to_string(world.vtheta));
+    }
 ////    //Accelerate/Decelerate if desired and actual theta velocities are unequal
 ////    if (world.des_vtheta-world.vtheta > 0)
 ////        world.vtheta += ACC_ROT;
@@ -128,13 +161,12 @@ void Actuation::actuate()
 //        world.vtheta = max_rot;
 //    else
 //    {
-        world.vx = world.des_vx;
-        world.vy = world.des_vy;
-        world.vtheta = world.des_vtheta;
+//        world.vtheta = world.des_vtheta;
 //    }
 
     //log("Vtheta: " + to_string(world.vtheta));
     //Send computed values to base
+    log("vx: " + to_string(world.vx) + "vy: " + to_string(world.vy) + "vtheta: " + to_string(world.vtheta));
     io.sendBaseReference(world.vx,world.vy,world.vtheta);
 }
 
