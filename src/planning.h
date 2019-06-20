@@ -10,7 +10,7 @@
 #include "mapping.h"
 #include "astar.h"
 
-#define PLANNING_LOG_FLAG 1
+#define PLANNING_LOG_FLAG 3
 
 using namespace std;
 
@@ -21,7 +21,7 @@ class Planning
     Measurement &sense;
     Mapping &mapper;
     ofstream planning_log;
-    double dist_compare_tol;
+    double dist_compare_tol,angle_compare_tol;
     double max_rot,max_trans,min_rot,min_trans;
     double min_angle,max_angle;
     double min_permit_dist;
@@ -47,7 +47,8 @@ public:
 Planning::Planning(emc::IO *io, World *w, Measurement *s, Mapping *m, const Performance specs) :
     world(*w), sense(*s), dist_compare_tol(specs.dist_compare_tol), ang_inc(s->getAngInc()),
     max_rot(specs.max_rot), max_trans(specs.max_trans), min_permit_dist(specs.min_permit_dist),
-    io(*io), mapper(*m), min_rot(specs.min_rot), min_trans(specs.min_trans)
+    io(*io), mapper(*m), min_rot(specs.min_rot), min_trans(specs.min_trans),
+    angle_compare_tol(specs.angle_compare_tol)
 
 {
     planning_log.open("../logs/planning_log.txt", ios::out | ios::trunc);
@@ -101,8 +102,6 @@ inline sys_state Planning::startup(sys_state s)
     bool exit_in_front = false;
     for (int i = 0; i < world.exits.size(); ++i)
     {
-        /*log(to_string((world.right.i+world.center.i)/3)+" "+to_string(world.exits[i].center.i)+" "+
-            to_string((world.left.i+world.center.i)*2.0/3.0));*/
         if (world.exits[i].center.i > (world.right.i+world.center.i)/3 &&
                 world.exits[i].center.i < (world.left.i+world.center.i)*2.0/3.0)
         {
@@ -167,13 +166,16 @@ inline sys_state Planning::localise()
     log("Map Right Exit Corner - x: " + to_string(world.points[17].x) + " y: " + to_string(world.points[17].y));
 
     // Set robot x,y position to difference between detected and provided exit coordinates
-    log("world.x: " + to_string(x_diff));
-    log("world.y: " + to_string(y_diff));
+    world.x_off = x_diff - world.x;
+    world.y_off = y_diff - world.y;
+    world.theta_off = 0 - world.theta;
     world.x = x_diff;
     world.y = y_diff;
     world.theta = 0;
+    log("world.x_off: " + to_string(world.x_off) + " world.y_off: " + to_string(world.y_off) + " world.theta_off: " + to_string(world.theta_off));
+    log("world.x: " + to_string(world.x) + " world.y: " + to_string(world.y) + " world.theta: " + to_string(world.theta));
     io.speak("Initial Localisation complete");
-    sleep(4);
+    //sleep(4);
     return GET_NEXT_CABINET;
 }
 
@@ -195,7 +197,7 @@ inline sys_state Planning::getNextCabinet()
     world.des_x = world.cabinets[cab_num].front.x;
     world.des_y = world.cabinets[cab_num].front.y;
     io.speak("Next Cabinet " + to_string(cab_num));
-    sleep(3);
+    //sleep(3);
     return GO_TO_DESTINATION;
 }
 
@@ -209,17 +211,55 @@ inline sys_state Planning::goToDestination()
 
     // Run path planner
     aStarSearch(world.global_gridmap,src,dest);
-    world.path_x = path_x;
-    world.path_y = path_y;
+    log(to_string(path_x.size()));
+    if (!path_x.empty())
+    {
+        world.path_x = path_x;
+        world.path_y = path_y;
+    }
+    if (world.path_x.empty())
+        return GO_TO_DESTINATION;
+    if (distance(world.path_x[0]*MAP_RES,world.path_y[0]*MAP_RES,world.x,world.y) >=
+            distance(world.path_x[1]*MAP_RES,world.path_y[1]*MAP_RES,world.x,world.y))
+    {
+        world.path_x.erase(world.path_x.begin());
+        world.path_y.erase(world.path_y.begin());
+    }
+    if (world.path_x.empty())
+        return GO_TO_DESTINATION;
+    // Calculate vtheta to face expected direction of motion
+    int next = min(int(world.path_x.size())-1,10);
+    double angle = atan2(world.path_x[0]-world.path_x[next],world.path_y[next]-world.path_y[0]);
+    if (fabs(angle - world.theta) > angle_compare_tol)
+    {
+        // Compute vtheta based on deviation from expected direction
+        // If difference is greater than pi/4, vtheta = +/-max_rot
+        if (fabs(angle - world.theta) < M_PI)
+            world.des_vtheta = max(-1.0,min(1.0,(angle - world.theta)/(M_PI/4)))*max_rot;
+        else
+            world.des_vtheta = -max(-1.0,min(1.0,(angle - world.theta)/(M_PI/4)))*max_rot;
+    }
+    else
+        world.des_vtheta = 0;
 
     // Resolve velocity vector for current movement
-    double angle = atan2(world.path_x[1]-world.path_x[0],world.path_x[1]-world.path_y[0]);
-    world.des_vtheta = 0;
-    world.des_vx = max_trans*(world.path_y[1]-world.path_y[0]);
-    world.des_vy = max_trans*(world.path_x[0]-world.path_x[1]);
+    // if pico is facing more than 60 degrees away from path direction, do not translate
+    if (fabs(angle - world.theta) > (M_PI/6))
+    {
+        world.des_vx = 0;
+    }
+    else
+    {
+        world.des_vx = max_trans*cos(angle-world.theta);
+    }
+
+    // No right-left movement
+    world.des_vy = 0;
+
+    cout << "vx: " << world.des_vx << " vy: " << world.des_vy << endl;
 
     //If reached destination
-    if (distance(world.x,world.y,world.des_x,world.des_y) < dist_compare_tol/MAP_RES)
+    if (distance(world.x,world.y,world.des_x,world.des_y) < 0.1)
         return AT_CABINET;
     else
         return GO_TO_DESTINATION;
@@ -227,18 +267,34 @@ inline sys_state Planning::goToDestination()
 
 inline sys_state Planning::atCabinet()
 {
-    log("At cabinet: " + to_string(cab_num));
-    io.speak("Reached cabinet");
-    mapper.captureImage(cab_num);
-    world.des_vtheta = 0;
-    world.des_vx = 0;
-    world.des_vy = 0;
-    world.vx = 0;
-    world.vy = 0;
-    world.vtheta = 0;
+    log("Cabinet direction: " + to_string(world.cabinets[cabinet_list[0]].dir) + " angle: " + to_string(world.theta));
+    if (fabs(world.cabinets[cabinet_list[0]].dir - world.theta) > M_PI/4)
+    {
+        // Compute vtheta based on deviation from expected direction
+        // If difference is greater than pi/4, vtheta = +/-max_rot
+        if (fabs(world.cabinets[cabinet_list[0]].dir  - world.theta) < M_PI)
+            world.des_vtheta = max(-1.0,min(1.0,(world.cabinets[cabinet_list[0]].dir - world.theta)/(M_PI/4)))*max_rot;
+        else
+            world.des_vtheta = -max(-1.0,min(1.0,(world.cabinets[cabinet_list[0]].dir - world.theta)/(M_PI/4)))*max_rot;
+        world.vx = 0;
+        world.vy = 0;
+        return AT_CABINET;
+    }
+    else
+    {
+        log("At cabinet: " + to_string(cab_num));
+        io.speak("Reached cabinet");
+        mapper.captureImage(cab_num);
+        world.des_vtheta = 0;
+        world.des_vx = 0;
+        world.des_vy = 0;
+        world.vx = 0;
+        world.vy = 0;
+        world.vtheta = 0;
 
-    cabinet_list.erase(cabinet_list.begin());
-    return GET_NEXT_CABINET;
+        cabinet_list.erase(cabinet_list.begin());
+        return GET_NEXT_CABINET;
+    }
 }
 
 inline sys_state Planning::stop(sys_state s)

@@ -76,7 +76,7 @@ Measurement::Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *o
     log("av_range: " + to_string(av_range));
     log("min_range: " + to_string(min_range));
     log("min_permit_dist: " + to_string(min_permit_dist));
-    log("center, right, left, farthest, nearest, front_clear, right_clear, left_clear");
+    log("center, right, left, farthest, nearest, front_clear, right_clear, left_clear, odom.x, odom.y, odom.theta");
 }
 
 Measurement::~Measurement()
@@ -104,12 +104,17 @@ int Measurement::measure()
     else
         ret = 0;
     if (io.readOdometryData(odom))
-        world.theta = odom.a;
+    {
+        world.theta = odom.a + world.theta_off;
+        world.x = odom.x + world.x_off;
+        world.y = odom.y + world.y_off;
+    }
     else
         ret -= 2;
     log(to_string(world.center.d)+','+to_string(world.right.d)+','+to_string(world.left.d)+','+
         to_string(world.farthest.d)+','+to_string(world.nearest.d)+','+
-        to_string(world.front_clear)+','+to_string(world.right_clear)+','+to_string(world.left_clear));
+        to_string(world.front_clear)+','+to_string(world.right_clear)+','+to_string(world.left_clear) + ',' +
+        to_string(world.x) + ',' + to_string(world.y) + ',' + to_string(world.theta));
     return ret;
 }
 
@@ -121,11 +126,8 @@ void Measurement::getMaxMinDist()
     world.front_clear = true;
     world.right_clear = true;
     world.left_clear = true;
-    //cout << "padding:" <<padding <<endl;
-    //cout << "scan_span:" <<scan_span<<endl;
     for (int i = padding; i < scan_span-padding; ++i)
     {
-        //cout << i << endl;
         if (scan.ranges[i] > world.farthest.d)
         {
             world.farthest.assignPoint(scan.ranges[i],i);
@@ -196,8 +198,6 @@ double Measurement::alignedToWall(int side = RIGHT)
                 diff += fabs(scan.ranges[i+j] - scan.ranges[i]/cos(j*ang_inc));
                 count += 1;
             }
-//            else
-//                cout << i+j << "found + " << scan.ranges[i+j] << endl;
         }
         if ((i-j) > 0)
         {
@@ -206,8 +206,6 @@ double Measurement::alignedToWall(int side = RIGHT)
                 diff += fabs(scan.ranges[i-j] - scan.ranges[i]/cos(j*ang_inc));
                 count += 1;
             }
-//            else
-//                cout << i+j << " found - " << scan.ranges[i+j] << endl;
         }
     }
     return diff/count;

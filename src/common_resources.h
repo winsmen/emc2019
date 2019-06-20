@@ -6,6 +6,7 @@
 #include <fstream>
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 #define RIGHT   0
 #define FRONT   1
@@ -15,7 +16,7 @@
 #define PPM                 70      // pixels per meter
 #define MAX_X               6.7     // map max x
 #define MAX_Y               6.4     // map max y
-#define MAP_RES             0.05    // in meters
+#define MAP_RES             0.05   // in meters
 #define MAP_X               int(MAX_X/MAP_RES + 1)
 #define MAP_Y               int(MAX_Y/MAP_RES + 1)
 
@@ -97,7 +98,8 @@ struct Cabinet {
     typedef vector<Line> Lines;
     Lines sides;
     CartPoint front;
-    Cabinet(Lines sides_, CartPoint front_) : sides(sides_), front(front_)
+    double dir;
+    Cabinet(Lines sides_, CartPoint front_, double dir_) : sides(sides_), front(front_), dir(dir_)
     {}
 };
 
@@ -117,6 +119,7 @@ struct World
     vector<Cabinet> cabinets;
     int global_gridmap[MAP_Y][MAP_X];
     int local_gridmap[MAP_Y][MAP_X];
+    vector<CartPoint> path;
     vector<int> path_x;
     vector<int> path_y;
 
@@ -126,6 +129,7 @@ struct World
     double vx, vy, vtheta;
     double des_x,des_y,des_theta;
     double x,y,theta;
+    double x_off,y_off,theta_off;
 
     World();
     ~World();
@@ -160,6 +164,8 @@ World::World()
     des_vtheta = des_vx = des_vy = 0;
     vtheta = vx = vy = 0;
     x = y = -1;
+    theta = 0;
+    theta_off = x_off = y_off = 0;
 }
 
 World::~World()
