@@ -553,20 +553,6 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
 
 void Mapping::captureImage(int num)
 {
-    // Save current LRF readings to file
-//    Mat frame = Mat::zeros(WINDOW_SIZE,WINDOW_SIZE,CV_8UC3);
-//    double x_c = WINDOW_SIZE/2.0;
-//    double y_c = WINDOW_SIZE/2.0;
-//    double x,y;
-//    for (int i = 0; i < cart_av.size(); ++i)
-//    {
-//        if (av[i] == 1)
-//            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(255,0,100),1,8);
-//        else
-//            circle(frame,Point(cart_av[i].x*display_scale+x_c,cart_av[i].y*display_scale+y_c),1,Scalar(0,255,0),1,8);
-//    }
-//    circle(frame,Point(x_c,y_c),4,Scalar(255,255,255),2,8);
-//    flip(frame,frame,0);
     imwrite("../captures/cab"+to_string(num)+".png",global_map);
 }
 

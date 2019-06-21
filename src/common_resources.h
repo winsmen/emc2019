@@ -121,7 +121,6 @@ struct World
     vector<Cabinet> cabinets;
     int global_gridmap[MAP_Y][MAP_X];
     int local_gridmap[MAP_Y][MAP_X];
-    vector<CartPoint> path;
     vector<int> path_x;
     vector<int> path_y;
 

@@ -20,9 +20,6 @@
 #define MIN_ROT             0.2
 #define MIN_TRANS           0.1
 
-void readCabinetList(int argc, char *argv[]);
-
-
 int main(int argc, char *argv[])
 {
     // Setup
@@ -53,7 +50,6 @@ int main(int argc, char *argv[])
             }
             pico.log(text);
             pico.io.speak(text);
-//            sleep(3);
         }
         pico.planner->updateCabinetList(pico.cabinet_list);
     }
@@ -61,7 +57,6 @@ int main(int argc, char *argv[])
     int loss_count = 0;
     while(pico.io.ok())
     {
-        //cout << 1;
         if (pico.sense->measure() != 1)
         {
             pico.r.sleep();
@@ -73,13 +68,10 @@ int main(int argc, char *argv[])
             }
             continue;
         }
-        //cout << 2;
         if (pico.getState() == STARTUP || pico.getState() == FIRST_LOCALISATION) //identify till first localisation
             pico.map->identify();
         else
             pico.map->localise();
-        //break;
-        //cout << 3 <<endl;
 #if PLAN_ENABLED
         pico.setState(pico.planner->plan(pico.getState()));
 #endif
@@ -88,13 +80,7 @@ int main(int argc, char *argv[])
 #endif
 
         pico.r.sleep();
-//        if (pico.state == STOP)
-//        {
-//            pico.printState();
-//            break;
-//        }
         loss_count = 0;
     }
-    //sleep(10);
     return 0;
 }

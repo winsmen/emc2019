@@ -34,12 +34,6 @@ public:
     // Robot Variables
     emc::IO io;
     emc::Rate r;
-    float maxTrans;
-    float maxRot;
-    float min_dist_from_wall = 0.6;
-    float dist_compare_tol = 0.01;
-    float corner_compare_tol = 0.1;
-    float angle_compare_tol = 0.1;
     sys_state state;
     Performance specs;
     Measurement *sense;
@@ -49,49 +43,11 @@ public:
     World world;
     vector<int> cabinet_list;
 
-    // Measurement Constants
-    double ang_inc;
-    int scan_span;
-    static const int padding = 15;
-    static const int av_range = 20;
-    vector<double> distance;    //unused
-    int wall_side;
-    int n_corners;
-    vector<LRFpoint> corner;
-    int corridor_center;
-    double corridor_center_dist;
-    int found_corridor;
-    int scan_count;
-
-    //Mapping Variables
-    Mat frame;
-
     ofstream outfile;
-
-    // Actuation Variables
-    double vx;
-    double vy;
-    double vtheta;
-    double dx;
-    double dy;
-    double theta;
-    double start_angle;
 
     // Constructor
     Robot(Performance specs, sys_state state);
     ~Robot();
-
-    // Main Functions
-    int plan();
-    int actuate();
-
-    // Measurement
-
-    // Mapping
-
-    // Planning
-
-    // Actuation
 
     // Misc
     void printState();
@@ -104,7 +60,7 @@ public:
 
 
 Robot::Robot(Performance s, sys_state state=STARTUP)
-    : specs(s), r(s.heartbeat), maxTrans(s.max_trans), maxRot(s.max_rot), state(state)
+    : specs(s), r(s.heartbeat), state(state)
 {
     outfile.open("../logs/main_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
@@ -118,10 +74,6 @@ Robot::Robot(Performance s, sys_state state=STARTUP)
         --maxIter;
     }
     log("IO modules ready");
-    ang_inc = world.scan.angle_increment;
-    scan_span = world.scan.ranges.size();
-    found_corridor = 0;
-    scan_count = 0;
     log("Initialising Measurement Module");
     sense = new Measurement(&io,&world,specs);
     log("Initialising Mapping Module");
@@ -154,8 +106,6 @@ void Robot::setState(sys_state s)
     {
         printState(s);
         state = s;
-//        io.sendBaseReference(0,0,0);
-//        sleep(1);
     }
 }
 
