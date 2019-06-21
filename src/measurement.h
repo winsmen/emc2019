@@ -17,8 +17,6 @@ class Measurement
 {
     // Operational variables
     emc::IO &io;
-    emc::LaserData &scan;
-    emc::OdometryData &odom;
     double ang_inc;
     int scan_span;
     const int side_range;
@@ -38,7 +36,7 @@ class Measurement
     void log(string text);
 
 public:
-    Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *odom, World *world,
+    Measurement(emc::IO *io, World *world,
                 const Performance specs);
     ~Measurement();
     int measure();
@@ -50,22 +48,22 @@ public:
 };
 
 
-Measurement::Measurement(emc::IO *io, emc::LaserData *scan, emc::OdometryData *odom, World *world,
+Measurement::Measurement(emc::IO *io, World *world,
                          const Performance specs)
-    : io(*io), scan(*scan), odom(*odom), world(*world),
+    : io(*io), world(*world),
       side_range(specs.side_range), padding(specs.padding), av_range(specs.av_range),
       min_range(specs.min_range), min_permit_dist(specs.min_permit_dist)
 {
-    ang_inc = scan->angle_increment;
-    scan_span = scan->ranges.size();
-    min_angle = scan->angle_min;
-    max_angle = scan->angle_max;
+    ang_inc = world->scan.angle_increment;
+    scan_span = world->scan.ranges.size();
+    min_angle = world->scan.angle_min;
+    max_angle = world->scan.angle_max;
     int center_index = (scan_span-1)/2;
     int right_index = center_index - (M_PI/2)/ang_inc;
     int left_index = center_index + (M_PI/2)/ang_inc;
-    this->world.center.assignPoint(scan->ranges[center_index],center_index);
-    this->world.right.assignPoint(scan->ranges[right_index],right_index);
-    this->world.left.assignPoint(scan->ranges[left_index],left_index);
+    this->world.center.assignPoint(world->scan.ranges[center_index],center_index);
+    this->world.right.assignPoint(world->scan.ranges[right_index],right_index);
+    this->world.left.assignPoint(world->scan.ranges[left_index],left_index);
     measure_log.open("../logs/measure_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Measurment Log: " + string(ctime(&now)));
@@ -94,20 +92,20 @@ int Measurement::measure()
      * -1 - LRF read success, Odometer read failed
      * -2 - LRF and Odometer read failed*/
     int ret = 1;
-    if (io.readLaserData(scan))
+    if (io.readLaserData(world.scan))
     {
-        world.center.d = scan.ranges[world.center.i];
-        world.right.d = scan.ranges[world.right.i];
-        world.left.d = scan.ranges[world.left.i];
+        world.center.d = world.scan.ranges[world.center.i];
+        world.right.d = world.scan.ranges[world.right.i];
+        world.left.d = world.scan.ranges[world.left.i];
         getMaxMinDist();
     }
     else
         ret = 0;
-    if (io.readOdometryData(odom))
+    if (io.readOdometryData(world.odom))
     {
-        world.theta = odom.a + world.theta_off;
-        world.x = odom.x + world.x_off;
-        world.y = odom.y + world.y_off;
+        world.theta = world.odom.a + world.theta_off;
+        world.x = world.odom.x + world.x_off;
+        world.y = world.odom.y + world.y_off;
     }
     else
         ret -= 2;
@@ -121,36 +119,36 @@ int Measurement::measure()
 
 void Measurement::getMaxMinDist()
 {
-    world.farthest.assignPoint(scan.ranges[0],scan.range_min);
-    world.nearest.assignPoint(scan.ranges[0],scan.range_max);
+    world.farthest.assignPoint(world.scan.ranges[0],world.scan.range_min);
+    world.nearest.assignPoint(world.scan.ranges[0],world.scan.range_max);
     world.front_clear = true;
     world.right_clear = true;
     world.left_clear = true;
     for (int i = padding; i < scan_span-padding; ++i)
     {
-        if (scan.ranges[i] > world.farthest.d)
+        if (world.scan.ranges[i] > world.farthest.d)
         {
-            world.farthest.assignPoint(scan.ranges[i],i);
+            world.farthest.assignPoint(world.scan.ranges[i],i);
         }
-        else if (scan.ranges[i] < world.nearest.d && scan.ranges[i] > min_range)
+        else if (world.scan.ranges[i] < world.nearest.d && world.scan.ranges[i] > min_range)
         {
-            world.nearest.assignPoint(scan.ranges[i],i);
+            world.nearest.assignPoint(world.scan.ranges[i],i);
         }
         if (abs(i - world.right.i) < side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (world.scan.ranges[i] < min_permit_dist && world.scan.ranges[i] > min_range)
                 world.right_clear = false;
         }
         else if (abs(i - world.left.i) < side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (world.scan.ranges[i] < min_permit_dist && world.scan.ranges[i] > min_range)
             {
                 world.left_clear = false;
             }
         }
         else if (abs(i - world.center.i) < side_range)
         {
-            if (scan.ranges[i] < min_permit_dist && scan.ranges[i] > min_range)
+            if (world.scan.ranges[i] < min_permit_dist && world.scan.ranges[i] > min_range)
             {
                 world.front_clear = false;
             }
@@ -171,11 +169,11 @@ int Measurement::sectorClear(int i = 499)
         return 3;
     for (int j = 0; j < side_range; ++j)
     {
-        if (scan.ranges[i+j] < min_permit_dist/cos(j*ang_inc) ||
-                scan.ranges[i-j] < min_permit_dist/cos(j*ang_inc))
+        if (world.scan.ranges[i+j] < min_permit_dist/cos(j*ang_inc) ||
+                world.scan.ranges[i-j] < min_permit_dist/cos(j*ang_inc))
             return 0;
-        if (scan.ranges[i+j] < 2*min_permit_dist/cos(j*ang_inc) ||
-                scan.ranges[i-j] < 2*min_permit_dist/cos(j*ang_inc))
+        if (world.scan.ranges[i+j] < 2*min_permit_dist/cos(j*ang_inc) ||
+                world.scan.ranges[i-j] < 2*min_permit_dist/cos(j*ang_inc))
             return 2;
     }
     return 1;
@@ -186,24 +184,24 @@ double Measurement::alignedToWall(int side = RIGHT)
 {
     int i = side==RIGHT?world.right.i:side==LEFT?world.left.i:world.center.i;
     const double compare_length = 0.3; //Check for 0.5m length
-    int range = atan(compare_length/scan.ranges[i])/ang_inc;
+    int range = atan(compare_length/world.scan.ranges[i])/ang_inc;
     double diff = 0;
     int count = 0;
     for(int j = 0; j < range; ++j)
     {
         if ((i+j) < scan_span)
         {
-            if (scan.ranges[i+j] > min_range)
+            if (world.scan.ranges[i+j] > min_range)
             {
-                diff += fabs(scan.ranges[i+j] - scan.ranges[i]/cos(j*ang_inc));
+                diff += fabs(world.scan.ranges[i+j] - world.scan.ranges[i]/cos(j*ang_inc));
                 count += 1;
             }
         }
         if ((i-j) > 0)
         {
-            if (scan.ranges[i-j] > min_range)
+            if (world.scan.ranges[i-j] > min_range)
             {
-                diff += fabs(scan.ranges[i-j] - scan.ranges[i]/cos(j*ang_inc));
+                diff += fabs(world.scan.ranges[i-j] - world.scan.ranges[i]/cos(j*ang_inc));
                 count += 1;
             }
         }

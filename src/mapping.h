@@ -27,8 +27,6 @@ using namespace std;
 class Mapping
 {
     //Operational Variables
-    emc::LaserData &scan;
-    emc::OdometryData &odom;
     const int padding;
     const int av_range;
     const int side_range;
@@ -52,7 +50,7 @@ class Mapping
 
     double findClosest(int x, int y);
 public:
-    Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs);
+    Mapping(World *world, const Performance specs);
     ~Mapping();
     void identify();
     void localise();
@@ -67,15 +65,15 @@ public:
 };
 
 
-Mapping::Mapping(emc::LaserData *scan, emc::OdometryData *odom, World *world, const Performance specs)
-    : scan(*scan), odom(*odom), world(*world), map("../src/finalmap.json"), min_range(specs.min_range),
+Mapping::Mapping(World *world, const Performance specs)
+    : world(*world), map("../src/finalmap.json"), min_range(specs.min_range),
       padding(specs.padding), av_range(specs.av_range), corner_compare_tol(specs.corner_compare_tol),
       side_range(specs.side_range), min_permit_dist(specs.min_permit_dist)
 {
-    ang_inc = scan->angle_increment;
-    scan_span = scan->ranges.size();
-    min_angle = scan->angle_min;
-    max_angle = scan->angle_max;
+    ang_inc = world->scan.angle_increment;
+    scan_span = world->scan.ranges.size();
+    min_angle = world->scan.angle_min;
+    max_angle = world->scan.angle_max;
     mapping_log.open("../logs/mapping_log.txt", ios::out | ios::trunc);
     time_t now = time(0);
     log("Mapping Log: " + string(ctime(&now)));
@@ -106,7 +104,7 @@ void Mapping::identify()
     cart_av.clear();
     for (int i = padding+av_range; i < scan_span-padding-av_range; ++i)
     {
-        double dist_av = pow((av_range+1),mult)*scan.ranges[i];
+        double dist_av = pow((av_range+1),mult)*world.scan.ranges[i];
         double av_x = 0, av_y = 0;
         double x,y;
         int den = pow(av_range+1,mult);
@@ -114,20 +112,20 @@ void Mapping::identify()
         // Compute Averaged distance data
         for (int j = 1; j <= av_range; ++j)
         {
-            dist_av += pow(j,mult)*scan.ranges[i+j] + pow(j,mult)*scan.ranges[i-j];
-            polar2cart(scan.ranges[i+j],(i+j)*-ang_inc+max_angle,x,y);
+            dist_av += pow(j,mult)*world.scan.ranges[i+j] + pow(j,mult)*world.scan.ranges[i-j];
+            polar2cart(world.scan.ranges[i+j],(i+j)*-ang_inc+max_angle,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
             cart_av.push_back(CartPoint(x,y));
             av.push_back(0);
-            polar2cart(scan.ranges[i-j],(i-j)*-ang_inc+max_angle,x,y);
+            polar2cart(world.scan.ranges[i-j],(i-j)*-ang_inc+max_angle,x,y);
             av_x += pow(j,mult)*x;
             av_y += pow(j,mult)*y;
             cart_av.push_back(CartPoint(x,y));
             av.push_back(0);
             den += 2*pow(j,mult);
         }
-        polar2cart(scan.ranges[i],i*-ang_inc,x,y);
+        polar2cart(world.scan.ranges[i],i*-ang_inc,x,y);
         av_x += pow(av_range+1,mult)*x;
         av_y += pow(av_range+1,mult)*y;
         av_x /= den;
@@ -140,13 +138,13 @@ void Mapping::identify()
         // Pick out corners
         if (distance(av_x,av_y,x,y) > 20*corner_compare_tol)
         {
-            if ((dist_av + corner_compare_tol < scan.ranges[i]) && scan.ranges[i] > min_range)
+            if ((dist_av + corner_compare_tol < world.scan.ranges[i]) && world.scan.ranges[i] > min_range)
             {
-                world.concave_corners.push_back(LRFpoint(scan.ranges[i],i));
+                world.concave_corners.push_back(LRFpoint(world.scan.ranges[i],i));
             }
-            else if ((dist_av - 5*corner_compare_tol > scan.ranges[i]) && scan.ranges[i] > min_range)
+            else if ((dist_av - 5*corner_compare_tol > world.scan.ranges[i]) && world.scan.ranges[i] > min_range)
             {
-                world.convex_corners.push_back(LRFpoint(scan.ranges[i],i));
+                world.convex_corners.push_back(LRFpoint(world.scan.ranges[i],i));
             }
         }
     }
@@ -169,7 +167,7 @@ void Mapping::identify()
             int midpoint_ind = (world.convex_corners[i].i + world.convex_corners[i+1].i)/2;
 
             // Exits will have at least 0.4m and at most 1.3 separation between corners
-            if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.3 && scan.ranges[midpoint_ind] - midpoint_dist > 0.5)
+            if (distance(x1,y1,x2,y2) > 0.4 && distance(x1,y1,x2,y2) < 1.3 && world.scan.ranges[midpoint_ind] - midpoint_dist > 0.5)
             {
                 world.exits.push_back(Exit(world.convex_corners[i+1],world.convex_corners[i]));
                 ++i;
@@ -180,7 +178,7 @@ void Mapping::identify()
             log("r2: " + to_string(world.convex_corners[i+1].d));
             log("i2: " + to_string(world.convex_corners[i+1].i));
             log("midpoint_dist: " + to_string(midpoint_dist));
-            log("scan.ranges[midpoint_ind]:" + to_string(scan.ranges[midpoint_ind]));
+            log("world.scan.ranges[midpoint_ind]:" + to_string(world.scan.ranges[midpoint_ind]));
         }
         log("Number of Exits: " + to_string(world.exits.size()));
     }
@@ -192,7 +190,7 @@ void Mapping::identify()
 
 void Mapping::localise()
 {
-    log("Odometry values - x: " + to_string(odom.x) + " y: " + to_string(odom.y) + " theta: "+ to_string(odom.a));
+    log("Odometry values - x: " + to_string(world.odom.x) + " y: " + to_string(world.odom.y) + " theta: "+ to_string(world.odom.a));
     double tempx,tempy,temptheta;
     double min_cost = MAP_X*MAP_Y*10;
     double cur_cost;
@@ -201,13 +199,13 @@ void Mapping::localise()
     min_y = world.y;
     min_theta = world.theta;
 //    fill_n(&world.global_gridmap[0][0],sizeof(world.global_gridmap)/sizeof(**world.global_gridmap),0);
-    for (double dx = -0.1; dx <= 0.1; dx+=MAP_RES)
+    for (double dx = -0.05; dx <= 0.05; dx+=MAP_RES)
     {
         tempx = world.x + dx;
-        for (double dy = -0.1; dy <= 0.1; dy+=MAP_RES)
+        for (double dy = -0.05; dy <= 0.05; dy+=MAP_RES)
         {
             tempy = world.y + dy;
-            for (double dtheta = -10*ang_inc; dtheta <= 10*ang_inc; dtheta+=ang_inc)
+            for (double dtheta = -0*ang_inc; dtheta <= 0*ang_inc; dtheta+=ang_inc)
             {
                 temptheta = world.theta + dtheta;
                 makeLocalGridmap(tempx,tempy,temptheta,20);
@@ -232,9 +230,9 @@ void Mapping::localise()
             }
         }
     }
-    world.x_off = min_x - odom.x;
-    world.y_off = min_y - odom.y;
-    world.theta_off = min_theta - odom.a;
+    world.x_off = min_x - world.odom.x;
+    world.y_off = min_y - world.odom.y;
+    world.theta_off = min_theta - world.odom.a;
     world.x = min_x;
     world.y = min_y;
     world.theta = min_theta;
@@ -385,16 +383,16 @@ void Mapping::displayMap()
 
     // Left/Right Alignment check line
     const double compare_length = 0.3; //Check for 0.3m length
-    int range_right = atan(compare_length/scan.ranges[world.right.i])/ang_inc;
-    int range_left = atan(compare_length/scan.ranges[world.left.i])/ang_inc;
+    int range_right = atan(compare_length/world.scan.ranges[world.right.i])/ang_inc;
+    int range_left = atan(compare_length/world.scan.ranges[world.left.i])/ang_inc;
     for (int i = 0; i < range_right; ++i)
     {
-        polar2cart(scan.ranges[world.right.i]/cos(i*ang_inc)*display_scale,(world.right.i+i)*-ang_inc+max_angle,x,y,x_c,y_c);
+        polar2cart(world.scan.ranges[world.right.i]/cos(i*ang_inc)*display_scale,(world.right.i+i)*-ang_inc+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
     }
     for (int i = 0; i < range_left; ++i)
     {
-        polar2cart(scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+max_angle,x,y,x_c,y_c);
+        polar2cart(world.scan.ranges[world.left.i]/cos(i*ang_inc)*display_scale,(world.left.i-i)*-ang_inc+max_angle,x,y,x_c,y_c);
         circle(frame,Point(x,y),1,Scalar(255,255,255),1,8);
     }
 
@@ -406,7 +404,7 @@ void Mapping::displayMap()
     }
     flip(frame,frame,0);
     imshow("Visualization",frame);
-    moveWindow("Visualization",0,600);
+    moveWindow("Visualization",550,0);
     waitKey(25);
 }
 
@@ -501,12 +499,12 @@ void Mapping::drawGlobalMap()
     // Raw LRF values within padding range
     for (int i = padding; i < scan_span-padding; ++i)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
+        polar2cart(world.scan.ranges[i],i*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
         circle(global_map,Point(x*PPM,y*PPM),1,Scalar(0,255,0),1,8);
     }
 
     // First point marker
-    polar2cart(scan.ranges[padding],padding*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
+    polar2cart(world.scan.ranges[padding],padding*-ang_inc+max_angle-world.theta,x,y,world.x,world.y);
     circle(global_map,Point(x*PPM,y*PPM),5,Scalar(0,255,0),1,8);
 
     if (!world.path_x.empty())
@@ -523,7 +521,7 @@ void Mapping::drawGlobalMap()
 
     flip(global_map,global_map,0);
     imshow("Visualization",global_map);
-    moveWindow("Visualization",0,600);
+    moveWindow("Visualization",550,0);
     waitKey(25);
 }
 
@@ -535,7 +533,7 @@ void Mapping::makeLocalGridmap(double dx, double dy, double dtheta, int step)
     // Convert all points (padding:step:scan_span-padding) to Cartesian Coordinates
     for (int i = padding; i < scan_span-padding; i += step)
     {
-        polar2cart(scan.ranges[i],i*-ang_inc+max_angle-dtheta,x,y,dx,dy);
+        polar2cart(world.scan.ranges[i],i*-ang_inc+max_angle-dtheta,x,y,dx,dy);
         points.push_back(CartPoint(x,y));
     }
 
@@ -583,8 +581,12 @@ void Mapping::genWeightedMap()
     {
         for (int j = 0; j < MAP_Y; ++j)
         {
-            if (super_gridmap[j][i] == 1 || world.local_gridmap[j][i] == 1)
+            if (super_gridmap[j][i] != 0 || world.local_gridmap[j][i] == 1)
             {
+                if (super_gridmap[j][i] == 1)
+                    layers = 8;
+                else
+                    layers = 6;
                 for (int k = 0; k <= layers; ++k)
                 {
                     for (int l = -k; l <= k; ++l)
@@ -601,7 +603,7 @@ void Mapping::genWeightedMap()
                 }
                 map_diff[j][i] += world.local_gridmap[j][i] - super_gridmap[j][i];
                 if (map_diff[j][i] > 20)
-                    super_gridmap[j][i] = 1;
+                    super_gridmap[j][i] = -1;
             }
         }
     }

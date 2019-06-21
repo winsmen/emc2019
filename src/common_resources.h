@@ -7,13 +7,14 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <emc/io.h>
 
 #define RIGHT   0
 #define FRONT   1
 #define LEFT    2
 
-#define WINDOW_SIZE         300
-#define PPM                 70      // pixels per meter
+#define WINDOW_SIZE         500
+#define PPM                 75      // pixels per meter
 #define MAX_X               6.7     // map max x
 #define MAX_Y               6.4     // map max y
 #define MAP_RES             0.05   // in meters
@@ -107,6 +108,7 @@ struct Cabinet {
 struct World
 {
     //Environment Variables
+    emc::LaserData scan;
     LRFpoint center, right, left;
     LRFpoint farthest, nearest;
     bool front_clear,right_clear,left_clear;
@@ -125,6 +127,7 @@ struct World
 
 
     //Robot Variables
+    emc::OdometryData odom;
     double des_vx, des_vy, des_vtheta;
     double vx, vy, vtheta;
     double des_x,des_y,des_theta;
